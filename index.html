@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ออก QR Code แลกรางวัล - แผงควบคุมแอดมิน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #EDF3E8;
+    --paper-deep: #DCE7D3;
+    --wood-dark: #1E3327;
+    --wood: #35513E;
+    --wood-light: #4E7059;
+    --ink: #24301F;
+    --ink-soft: #58694E;
+    --cream: #F4ECD8;
+    --brass: #B4903F;
+    --brass-bright: #E0B563;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0;
+    background:var(--paper);
+    font-family:'Sarabun', sans-serif;
+    color:var(--ink);
+  }
+
+  /* ---------- Login screen (เหมือนหน้าอ่านหนังสือ - ใช้บัญชีแอดมินเดียวกัน) ---------- */
+  #loginScreen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    background:
+      radial-gradient(ellipse at top, rgba(180,144,63,0.16), transparent 60%),
+      var(--paper);
+  }
+  .login-wrap{ width:100%; max-width:380px; display:flex; flex-direction:column; align-items:center; }
+  .brand-block{ display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:22px; text-align:center; }
+  .brand-block .brand-name{ font-weight:600; font-size:15.5px; color:var(--ink); line-height:1.5; }
+  .login-card{
+    width:100%; max-width:380px;
+    background:rgba(255,255,255,0.4);
+    border:1px solid rgba(42,29,18,0.18);
+    border-radius:6px;
+    padding:40px 32px 34px;
+    text-align:center;
+    box-shadow:0 20px 50px rgba(0,0,0,0.15);
+  }
+  .login-card .eyebrow-line{ width:44px; height:2px; background:var(--brass); margin:0 auto 16px; }
+  .login-card h1{ font-weight:600; font-size:23px; margin:0 0 8px; }
+  .login-card p.sub{ font-size:13px; color:var(--ink-soft); margin:0 0 26px; line-height:1.6; }
+  .field{ text-align:left; margin-bottom:16px; }
+  .field label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px; }
+  .field input{
+    width:100%; padding:11px 13px;
+    border:1px solid rgba(42,29,18,0.3);
+    border-radius:4px;
+    background:rgba(255,255,255,0.6);
+    font-family:'Sarabun', sans-serif;
+    font-size:14.5px;
+    color:var(--ink);
+  }
+  .field input:focus{ outline:none; border-color:var(--brass); background:#fff; }
+  .login-error{ font-size:12.5px; color:#A3372A; margin:-6px 0 14px; text-align:left; display:none; }
+  .btn{
+    display:inline-block; width:100%;
+    padding:13px 20px;
+    background:var(--ink); color:var(--cream);
+    border:none; border-radius:4px;
+    font-family:'Sarabun', sans-serif;
+    font-size:15px; font-weight:600;
+    cursor:pointer;
+    transition:background 0.15s ease, transform 0.1s ease;
+  }
+  .btn:hover{ background:var(--wood-light); }
+  .btn:active{ transform:scale(0.98); }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .login-footer{ margin-top:22px; text-align:center; font-size:12px; line-height:1.8; color:var(--ink-soft); }
+  .login-footer .org-line{ font-weight:600; color:var(--ink); font-size:12.5px; margin-bottom:2px; }
+
+  /* ---------- Admin QR page ---------- */
+  #adminApp{ display:none; }
+  header{
+    padding:36px 24px 28px;
+    text-align:center;
+    background:var(--wood-dark);
+    color:var(--cream);
+  }
+  header .eyebrow-line{ width:52px; height:2px; background:var(--brass); margin:0 auto 14px; }
+  header h1{ font-weight:600; font-size:clamp(22px, 4.5vw, 30px); margin:0 0 8px; }
+  header p.sub{ font-size:13.5px; color:rgba(244,236,216,0.75); margin:0 0 16px; max-width:440px; margin-left:auto; margin-right:auto; line-height:1.7; }
+  .greeting{ font-size:13px; color:rgba(244,236,216,0.65); }
+  .greeting .logout-link{ color:var(--brass-bright); text-decoration:underline; cursor:pointer; margin-left:8px; }
+
+  .page{ max-width:900px; margin:0 auto; padding:36px 24px 60px; }
+
+  .admin-qr-wrap{
+    background:rgba(255,255,255,0.5);
+    border:1px solid rgba(42,29,18,0.15);
+    border-radius:10px;
+    padding:26px 22px;
+  }
+  .admin-qr-wrap h2{ font-size:18px; margin:0 0 8px; color:var(--wood-dark); }
+  .admin-qr-desc{ font-size:12.5px; color:var(--ink-soft); margin:0 0 22px; line-height:1.7; }
+  .admin-qr-body{ display:flex; gap:30px; flex-wrap:wrap; justify-content:center; }
+  .admin-qr-left{ flex:1 1 260px; display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .admin-qr-display{
+    font-size:42px; font-weight:700; color:var(--wood-dark);
+    background:rgba(180,144,63,0.12);
+    border:1px solid rgba(180,144,63,0.4);
+    border-radius:8px;
+    width:100%; max-width:220px; text-align:center;
+    padding:10px 0; letter-spacing:1px;
+  }
+  .admin-qr-presets{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  .qr-preset-btn{
+    padding:8px 16px; border-radius:999px;
+    border:1px solid rgba(42,29,18,0.3);
+    background:rgba(255,255,255,0.7);
+    font-family:'Sarabun', sans-serif;
+    font-size:13px; font-weight:600;
+    color:var(--ink); cursor:pointer;
+  }
+  .qr-preset-btn:hover{ background:#fff; }
+  .admin-qr-keypad{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; width:100%; max-width:220px; }
+  .admin-qr-keypad button{
+    padding:16px 0; border-radius:6px;
+    border:1px solid rgba(42,29,18,0.25);
+    background:rgba(255,255,255,0.7);
+    font-family:'Sarabun', sans-serif;
+    font-size:17px; font-weight:600;
+    color:var(--ink); cursor:pointer;
+  }
+  .admin-qr-keypad button:hover{ background:#fff; }
+  .admin-qr-left .btn{ width:100%; max-width:220px; }
+  .admin-qr-right{ flex:1 1 220px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:12px; }
+  .admin-qr-code-box{
+    width:220px; height:220px;
+    display:flex; align-items:center; justify-content:center;
+    background:#fff;
+    border:1px solid rgba(42,29,18,0.15);
+    border-radius:8px;
+    padding:10px;
+  }
+  .admin-qr-placeholder{ font-size:12.5px; color:var(--ink-soft); text-align:center; padding:0 10px; }
+  .admin-qr-code-hint{ font-size:11.5px; color:var(--ink-soft); text-align:center; letter-spacing:0.5px; }
+  .qr-status{ font-size:13px; font-weight:600; color:var(--ink-soft); text-align:center; }
+  .qr-status.waiting{ color:var(--brass); }
+  .qr-status.used{ color:#1F6E5C; }
+
+  /* ---------- Admin: content management (books/rewards CRUD) ---------- */
+  .admin-content-wrap{
+    background:rgba(255,255,255,0.5);
+    border:1px solid rgba(42,29,18,0.15);
+    border-radius:10px;
+    padding:26px 22px;
+    margin-top:26px;
+  }
+  .admin-content-wrap h2{ font-size:18px; margin:0 0 8px; color:var(--wood-dark); }
+  .admin-content-desc{ font-size:12.5px; color:var(--ink-soft); margin:0 0 18px; line-height:1.7; }
+  .admin-item-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:12px 14px;
+    background:rgba(255,255,255,0.6);
+    border:1px solid rgba(42,29,18,0.12);
+    border-radius:6px;
+    margin-bottom:8px;
+    flex-wrap:wrap;
+  }
+  .admin-item-info{ display:flex; flex-direction:column; gap:2px; }
+  .admin-item-info strong{ font-size:14px; color:var(--ink); }
+  .admin-item-info span{ font-size:12px; color:var(--ink-soft); }
+  .admin-item-actions{ display:flex; gap:8px; flex-shrink:0; }
+  .btn.small{ width:auto; padding:7px 14px; font-size:12.5px; }
+  .btn.danger{ background:#A3372A; }
+  .btn.danger:hover{ background:#8A2E22; }
+
+  .admin-field{ margin-bottom:14px; text-align:left; }
+  .admin-field label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px; }
+  .admin-field input[type="text"], .admin-field input[type="number"], .admin-field select, .admin-field textarea{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid rgba(42,29,18,0.3);
+    border-radius:4px;
+    background:rgba(255,255,255,0.7);
+    font-family:'Sarabun', sans-serif;
+    font-size:13.5px;
+    color:var(--ink);
+  }
+  .admin-field textarea{ resize:vertical; line-height:1.6; }
+  .admin-field-row{ display:flex; gap:14px; flex-wrap:wrap; }
+  .admin-field-row .admin-field{ flex:1 1 140px; }
+
+  .admin-mode-toggle{ display:flex; gap:20px; margin-bottom:16px; font-size:13.5px; }
+  .admin-mode-toggle label{ display:flex; align-items:center; gap:6px; cursor:pointer; }
+
+  .admin-question-block, .admin-chapter-block{
+    background:rgba(255,255,255,0.5);
+    border:1px solid rgba(42,29,18,0.15);
+    border-radius:6px;
+    padding:14px;
+    margin-bottom:12px;
+  }
+  .admin-question-block-head, .admin-chapter-block-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .admin-question-block-head strong, .admin-chapter-block-head strong{ font-size:13px; color:var(--wood-dark); }
+  .admin-remove-btn{
+    border:none;
+    background:none;
+    color:#A3372A;
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+    text-decoration:underline;
+    padding:0;
+  }
+  .admin-q-input{
+    width:100%;
+    padding:9px 11px;
+    border:1px solid rgba(42,29,18,0.3);
+    border-radius:4px;
+    background:#fff;
+    font-family:'Sarabun', sans-serif;
+    font-size:13px;
+    margin-bottom:8px;
+  }
+  .admin-option-row{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .admin-option-row input[type="radio"]{ flex-shrink:0; }
+  .admin-opt-input{
+    flex:1;
+    padding:8px 10px;
+    border:1px solid rgba(42,29,18,0.25);
+    border-radius:4px;
+    background:#fff;
+    font-family:'Sarabun', sans-serif;
+    font-size:12.5px;
+  }
+  .admin-questions-block{ margin-top:14px; }
+  .admin-questions-block > label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:10px; }
+
+  .admin-form-actions{ display:flex; gap:10px; margin-top:18px; }
+  .admin-form-actions .btn{ width:auto; }
+
+  .admin-seed-note{
+    background:rgba(180,144,63,0.12);
+    border:1px dashed rgba(180,144,63,0.5);
+    border-radius:6px;
+    padding:14px 16px;
+    font-size:12.5px;
+    line-height:1.8;
+    color:var(--ink-soft);
+    margin-bottom:18px;
+  }
+  .admin-seed-note code{
+    background:rgba(0,0,0,0.08);
+    padding:1px 6px;
+    border-radius:3px;
+    font-size:12px;
+  }
+
+  .points-toast{
+    position:fixed; left:50%; bottom:26px;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--wood-dark); color:var(--cream);
+    padding:12px 20px; border-radius:999px;
+    font-size:13.5px; font-weight:600;
+    opacity:0; pointer-events:none;
+    transition:opacity 0.25s ease, transform 0.25s ease;
+    box-shadow:0 10px 30px rgba(0,0,0,0.25);
+    z-index:50;
+  }
+  .points-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .site-footer{ max-width:900px; margin:0 auto; padding:20px 24px 40px; text-align:center; border-top:1px solid rgba(36,48,31,0.14); font-size:12px; line-height:1.9; color:var(--ink-soft); }
+  .site-footer .org-line{ font-weight:600; color:var(--ink); }
+
+  /* ---------- Admin: reader report ---------- */
+  .admin-report-wrap{
+    background:rgba(255,255,255,0.5);
+    border:1px solid rgba(42,29,18,0.15);
+    border-radius:10px;
+    padding:26px 22px;
+    margin-top:26px;
+  }
+  .admin-report-wrap h2{ font-size:18px; margin:0 0 8px; color:var(--wood-dark); }
+  .admin-report-desc{ font-size:12.5px; color:var(--ink-soft); margin:0 0 20px; line-height:1.7; }
+  .admin-summary{ display:flex; flex-wrap:wrap; gap:14px; margin-bottom:24px; }
+  .admin-stat{
+    flex:1 1 130px;
+    background:rgba(255,255,255,0.6);
+    border:1px solid rgba(42,29,18,0.15);
+    border-radius:6px;
+    padding:14px 16px;
+    text-align:center;
+  }
+  .admin-stat .num{ display:block; font-size:22px; font-weight:700; color:var(--wood-dark); }
+  .admin-stat .lbl{ font-size:11.5px; color:var(--ink-soft); }
+  .admin-toolbar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:24px; }
+  .admin-toolbar .btn{ width:auto; }
+  .admin-table-wrap{ margin-bottom:30px; overflow-x:auto; }
+  .admin-table-wrap h3{ font-size:15px; margin:0 0 10px; color:var(--wood-dark); }
+  .admin-table{
+    width:100%; min-width:440px;
+    border-collapse:collapse;
+    background:rgba(255,255,255,0.7);
+    border-radius:6px;
+    overflow:hidden;
+    font-size:13px;
+  }
+  .admin-table th, .admin-table td{
+    padding:9px 12px;
+    text-align:left;
+    border-bottom:1px solid rgba(42,29,18,0.12);
+    white-space:nowrap;
+  }
+  .admin-table th{ background:var(--wood-dark); color:var(--cream); font-weight:600; font-size:11.5px; }
+  .admin-table tr:last-child td{ border-bottom:none; }
+  .admin-empty{ padding:16px; text-align:center; color:var(--ink-soft); font-size:12.5px; white-space:normal; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-wrap">
+    <div class="brand-block">
+      <div class="brand-name">ศูนย์ส่งเสริมการเรียนรู้ระดับอำเภอเทิง</div>
+    </div>
+    <div class="login-card">
+      <div class="eyebrow-line"></div>
+      <h1>แผงควบคุมแอดมิน</h1>
+      <p class="sub">ออก QR Code สำหรับแลกรางวัล<br>เข้าสู่ระบบด้วยบัญชีแอดมินเดียวกับหน้าห้องสมุด</p>
+      <div class="field">
+        <label for="loginName">ชื่อผู้ใช้</label>
+        <input type="text" id="loginName" placeholder="ชื่อบัญชีแอดมิน" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="loginPass">รหัสผ่าน</label>
+        <input type="password" id="loginPass" placeholder="รหัสผ่าน" autocomplete="current-password">
+      </div>
+      <p class="login-error" id="loginError">เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน</p>
+      <button class="btn" id="loginBtn">เข้าสู่ระบบ</button>
+    </div>
+    <div class="login-footer">
+      <div class="org-line">ศูนย์ส่งเสริมการเรียนรู้ระดับอำเภอเทิง</div>
+      <div>หน้านี้สำหรับแอดมินเท่านั้น - นักอ่านทั่วไปให้ใช้ไฟล์ index.html</div>
+    </div>
+  </div>
+</div>
+
+<div id="adminApp">
+  <header>
+    <div class="eyebrow-line"></div>
+    <h1>แผงควบคุมแอดมิน</h1>
+    <p class="sub">ออก QR Code แลกรางวัล และดูรายงานสรุปแต้มของนักอ่านทั้งหมด</p>
+    <div class="greeting" id="greetingText"></div>
+  </header>
+
+  <div class="page">
+    <div class="admin-qr-wrap">
+      <h2>กดจำนวนแต้ม แล้วสร้าง QR Code</h2>
+      <p class="admin-qr-desc">กดตัวเลข หรือกดปุ่มลัด 100 / 200 / 300 เพื่อกำหนดจำนวนแต้มที่นักอ่านจะใช้แลกรางวัลชิ้นนี้ แล้วกด "สร้าง QR Code" เพื่อแสดงให้นักอ่านสแกน — QR Code แต่ละใบใช้แลกได้เพียงครั้งเดียวเท่านั้น และจะขึ้นสถานะ "ถูกใช้แล้ว" ที่นี่ทันทีที่มีคนสแกนสำเร็จ</p>
+      <div class="admin-qr-body">
+        <div class="admin-qr-left">
+          <div class="admin-qr-display" id="adminQrPointsDisplay">0</div>
+          <div class="admin-qr-presets">
+            <button type="button" class="qr-preset-btn" data-points="100">100 แต้ม</button>
+            <button type="button" class="qr-preset-btn" data-points="200">200 แต้ม</button>
+            <button type="button" class="qr-preset-btn" data-points="300">300 แต้ม</button>
+          </div>
+          <div class="admin-qr-keypad" id="adminQrKeypad">
+            <button type="button" data-digit="1">1</button>
+            <button type="button" data-digit="2">2</button>
+            <button type="button" data-digit="3">3</button>
+            <button type="button" data-digit="4">4</button>
+            <button type="button" data-digit="5">5</button>
+            <button type="button" data-digit="6">6</button>
+            <button type="button" data-digit="7">7</button>
+            <button type="button" data-digit="8">8</button>
+            <button type="button" data-digit="9">9</button>
+            <button type="button" data-action="clear">ล้าง</button>
+            <button type="button" data-digit="0">0</button>
+            <button type="button" data-action="back">⌫</button>
+          </div>
+          <button class="btn" id="adminGenerateQrBtn" type="button">สร้าง QR Code</button>
+        </div>
+        <div class="admin-qr-right">
+          <div class="admin-qr-code-box" id="adminQrCodeBox">
+            <div class="admin-qr-placeholder">ยังไม่ได้สร้าง QR Code</div>
+          </div>
+          <div class="admin-qr-code-hint" id="adminQrCodeHint"></div>
+          <p class="qr-status" id="qrStatusText"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-report-wrap">
+      <h2>📊 รายงานสรุปแต้มนักอ่าน</h2>
+      <p class="admin-report-desc">สรุปว่านักอ่านมีใครบ้าง ได้แต้มสะสมเท่าไร แลกรางวัลไปแล้วเท่าไร เรียงจากแต้มคงเหลือมากไปน้อย สามารถโหลดเป็นไฟล์ Excel เก็บไว้ได้</p>
+
+      <div class="admin-summary" id="adminSummary"></div>
+
+      <div class="admin-toolbar">
+        <button class="btn" id="adminExportBtn" type="button">📥 ดาวน์โหลดเป็น Excel</button>
+        <button class="btn secondary" id="adminRefreshBtn" type="button">🔄 รีเฟรชข้อมูล</button>
+      </div>
+
+      <div class="admin-table-wrap">
+        <h3>รายชื่อนักอ่านทั้งหมด (เรียงจากแต้มคงเหลือมากไปน้อย)</h3>
+        <table class="admin-table" id="adminUsersTable">
+          <tr><td class="admin-empty">กำลังโหลดข้อมูล...</td></tr>
+        </table>
+      </div>
+
+      <div class="admin-table-wrap">
+        <h3>ประวัติการแลกรางวัลทั้งหมด</h3>
+        <table class="admin-table" id="adminRedemptionsTable"></table>
+      </div>
+    </div>
+
+    <div class="admin-content-wrap" id="rewardsManagerWrap">
+      <h2>🎁 จัดการรางวัลในแคตตาล็อก</h2>
+      <p class="admin-content-desc">เพิ่ม แก้ไข หรือลบรางวัลที่แสดงในหน้าแลกแต้มของนักอ่าน ไม่ต้องแก้โค้ดเลย รูปภาพยังต้องอัปโหลดขึ้น GitHub ในโฟลเดอร์เดียวกับ index.html เองก่อน แล้วพิมพ์แค่ชื่อไฟล์ลงในฟอร์มด้านล่าง</p>
+      <div id="rewardsListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
+      <button class="btn" id="addRewardBtn" type="button">+ เพิ่มรางวัลใหม่</button>
+      <div id="rewardFormWrap" style="display:none; margin-top:18px;"></div>
+    </div>
+
+    <div class="admin-content-wrap" id="booksManagerWrap">
+      <h2>📚 จัดการหนังสือ/เรื่องราวในห้องสมุด</h2>
+      <p class="admin-content-desc">เพิ่ม แก้ไข หรือลบหนังสือ รวมถึงหนังสือแบบรายตอนพร้อมคำถามท้ายเรื่อง ไม่ต้องแก้โค้ดเลย</p>
+      <div class="admin-seed-note" id="seedNoteBox" style="display:none;">
+        ยังไม่มีข้อมูลหนังสือ/รางวัลใน Firestore เลย ถ้าเป็นการเปิดใช้ระบบนี้ครั้งแรก ให้เปิดไฟล์ <code>index.html</code> ล็อกอินด้วยบัญชีแอดมินก่อน แล้วกด F12 เปิด Console พิมพ์คำสั่ง <code>seedContentToFirestore()</code> แล้ว Enter หนึ่งครั้ง เพื่อนำเข้าหนังสือ 36 เล่ม + รางวัลเดิมเข้ามาก่อน จากนั้นกลับมาหน้านี้แล้วกด "รีเฟรชข้อมูล" (ทำครั้งเดียวพอ)
+      </div>
+      <div id="booksListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
+      <button class="btn" id="addBookBtn" type="button">+ เพิ่มหนังสือใหม่</button>
+      <div id="bookFormWrap" style="display:none; margin-top:18px;"></div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="org-line">ศูนย์ส่งเสริมการเรียนรู้ระดับอำเภอเทิง</div>
+    <div>สร้างสรรค์โดย นายวนศาสตร์ วัฒนาสกุลลี ครู สกร.ระดับอำเภอเทิง</div>
+  </footer>
+</div>
+
+<div class="points-toast" id="pointsToast"></div>
+
+<!-- Firebase (compat build - โปรเจกต์เดียวกับ index.html) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<!-- qrcodejs - สร้างภาพ QR Code -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!-- SheetJS - ใช้สร้างไฟล์ .xlsx สำหรับปุ่ม "ส่งออกเป็น Excel" -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+/* ===================================================================
+   CONFIG - Firebase backend (ต้องเป็นโปรเจกต์เดียวกับไฟล์ index.html
+   เพราะต้องเขียน/อ่าน Firestore ชุดเดียวกัน - users, redeemCodes)
+=================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBdjI88hqM3JLQgF09iNGOAN7WzCFU6jxw",
+  authDomain: "platform-81335.firebaseapp.com",
+  projectId: "platform-81335",
+  storageBucket: "platform-81335.firebasestorage.app",
+  messagingSenderId: "64102912838",
+  appId: "1:64102912838:web:19339c6ff950264a904b47"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* ต้องตรงกับฟังก์ชันเดียวกันในไฟล์ index.html เป๊ะ ๆ ไม่เช่นนั้นชื่อบัญชี
+   เดียวกันจะแปลงเป็นอีเมลคนละอันและล็อกอินไม่ผ่าน */
+function nameToEmail(name){
+  const clean = name.trim().toLowerCase().replace(/[^a-z0-9ก-๙]+/g, "");
+  let hash = 0;
+  for(let i=0;i<name.length;i++){ hash = (hash*31 + name.charCodeAt(i)) >>> 0; }
+  return `${encodeURIComponent(clean || "reader")}-${hash.toString(36)}@readapp.local`;
+}
+
+function showToast(text){
+  const toast = document.getElementById('pointsToast');
+  toast.textContent = text;
+  toast.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=> toast.classList.remove('show'), 2200);
+}
+
+/* ---------------- Login ---------------- */
+let currentUserName = "";
+let currentUserDocRef = null;
+/* เก็บชื่อที่เพิ่งพิมพ์ตอนกดปุ่มเข้าสู่ระบบไว้ชั่วคราว ให้ onAuthStateChanged
+   เอาไปใช้สร้างโปรไฟล์ Firestore ได้ (เผื่อกรณีบัญชีนี้มีตัวตนใน Firebase
+   Authentication อยู่แล้วแต่ document โปรไฟล์หายไปหรือไม่เคยถูกสร้างเลย) */
+let pendingLoginName = null;
+
+async function doLogin(){
+  const name = document.getElementById('loginName').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errorEl = document.getElementById('loginError');
+  errorEl.style.display = "none";
+
+  if(!name || !pass){
+    errorEl.textContent = "กรุณากรอกชื่อผู้ใช้และรหัสผ่าน";
+    errorEl.style.display = "block";
+    return;
+  }
+
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.textContent = "กำลังเข้าสู่ระบบ...";
+
+  const email = nameToEmail(name);
+  pendingLoginName = name;
+  try{
+    try{
+      await auth.createUserWithEmailAndPassword(email, pass);
+      /* บัญชีนี้ยังไม่เคยมีมาก่อน - สร้างใหม่สำเร็จ (การสร้าง "โปรไฟล์" ใน
+         Firestore ให้ onAuthStateChanged ด้านล่างจัดการทีเดียวที่เดียว - ดูเหตุผล
+         ที่คอมเมนต์ตรงนั้น) */
+    }catch(err){
+      if(err.code === 'auth/email-already-in-use'){
+        /* กรณีปกติ: มีบัญชีนี้อยู่แล้ว -> เข้าสู่ระบบด้วยรหัสผ่านที่กรอกจริง ๆ
+           error ที่ได้จากตรงนี้ (wrong-password / invalid-credential) จะแม่นยำ
+           ไม่กำกวมเหมือนเดิม */
+        await auth.signInWithEmailAndPassword(email, pass);
+      } else {
+        throw err;
+      }
+    }
+    /* onAuthStateChanged ด้านล่างจะรับช่วงต่อเอง: เช็ค role และเปิดหน้า admin */
+  }catch(err){
+    console.warn("login error:", err);
+    let msg = "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่";
+    if(err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential'){
+      msg = "รหัสผ่านไม่ตรงกับบัญชีนี้ กรุณาตรวจสอบรหัสผ่าน";
+    } else if(err.code === 'auth/weak-password'){
+      msg = "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร";
+    } else if(!err.code && err.message){
+      /* err ที่ไม่มี .code คือ Error ที่เราโยนขึ้นมาเองพร้อมข้อความอธิบายแล้ว
+         (เช่นกรณีบันทึกโปรไฟล์ไม่สำเร็จ) ใช้ข้อความนั้นตรง ๆ เพราะชัดเจนกว่า */
+      msg = err.message;
+    }
+    errorEl.textContent = msg;
+    errorEl.style.display = "block";
+  }
+
+  btn.disabled = false;
+  btn.textContent = "เข้าสู่ระบบ";
+}
+
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('loginPass').addEventListener('keydown', (e)=>{ if(e.key === "Enter") doLogin(); });
+document.getElementById('loginName').addEventListener('keydown', (e)=>{ if(e.key === "Enter") doLogin(); });
+
+function logoutUser(){
+  auth.signOut();
+}
+
+auth.onAuthStateChanged(async (user)=>{
+  if(!user){
+    document.getElementById('loginScreen').style.display = "flex";
+    document.getElementById('adminApp').style.display = "none";
+    return;
+  }
+
+  try{
+    currentUserDocRef = db.collection('users').doc(user.uid);
+    let snap = await currentUserDocRef.get();
+
+    if(!snap.exists){
+      /* บัญชีนี้มีตัวตนใน Firebase Authentication แล้ว แต่ยังไม่มี document
+         โปรไฟล์ใน Firestore เลย (เช่น สมัครผ่านหน้านี้ตอนที่ยังมีบั๊กเก่า หรือ
+         สมัครผ่านหน้านี้เป็นครั้งแรก) - สร้างให้ตอนนี้เลย ให้ shape เดียวกับที่
+         index.html สร้าง เพื่อให้ผ่าน Firestore Security Rules ชุดเดียวกัน
+         role ปล่อยเป็น null ไว้ก่อนโดยตั้งใจ ต้องไปเพิ่มเองผ่าน Firebase
+         Console เพื่อความปลอดภัย ไม่ให้ใครก็ได้ที่เข้ามาหน้านี้ตั้งตัวเองเป็น
+         แอดมินได้ทันที */
+      try{
+        await currentUserDocRef.set({
+          name: pendingLoginName || user.email,
+          totalPoints: 0,
+          progress: {},
+          role: null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        snap = await currentUserDocRef.get();
+      }catch(profileErr){
+        console.warn("create profile error:", profileErr);
+        const errorEl = document.getElementById('loginError');
+        errorEl.textContent = "สร้างบัญชีสำเร็จ แต่บันทึกโปรไฟล์ไม่สำเร็จ (Firestore ปฏิเสธ: " + (profileErr.code || profileErr.message) + ") กรุณาแจ้งผู้พัฒนาระบบ";
+        errorEl.style.display = "block";
+        await auth.signOut();
+        return;
+      }
+    }
+
+    const data = snap.exists ? snap.data() : null;
+
+    if(!data || data.role !== "admin"){
+      /* บัญชีนี้ยังไม่มีสิทธิ์แอดมิน (ปกติสำหรับการสร้างบัญชีครั้งแรก - ต้องไป
+         เพิ่ม role:"admin" เองผ่าน Firebase Console ก่อนถึงจะเข้าได้ เพื่อกัน
+         ไม่ให้ใครก็ได้ที่เข้ามาหน้านี้ตั้งตัวเองเป็นแอดมิน) */
+      const shownName = (data && data.name) ? data.name : (user.email || "บัญชีนี้");
+      const errorEl = document.getElementById('loginError');
+      errorEl.textContent = `บัญชี "${shownName}" ยังไม่มีสิทธิ์ผู้ดูแลระบบ - ไปที่ Firebase Console > Firestore > collection "users" หา document ที่มี field name = "${shownName}" แล้วเพิ่ม field role (ประเภท string) ค่า admin`;
+      errorEl.style.display = "block";
+      await auth.signOut();
+      return;
+    }
+
+    currentUserName = data.name || "แอดมิน";
+    document.getElementById('loginScreen').style.display = "none";
+    document.getElementById('adminApp').style.display = "block";
+    document.getElementById('greetingText').innerHTML =
+      `เข้าสู่ระบบในฐานะผู้ดูแลระบบ <strong>${currentUserName}</strong> <span class="logout-link" onclick="logoutUser()">ออกจากระบบ</span>`;
+    loadAdminDashboard();
+    loadRewardsManager();
+    loadBooksManager();
+  }catch(err){
+    console.warn("auth state check error:", err);
+    const errorEl = document.getElementById('loginError');
+    errorEl.textContent = "ตรวจสอบสิทธิ์ผู้ดูแลระบบไม่สำเร็จ กรุณาลองใหม่";
+    errorEl.style.display = "block";
+    await auth.signOut();
+  }
+});
+
+/* ===================================================================
+   ออก QR Code สำหรับแลกรางวัล
+   แอดมินกดตัวเลขจำนวนแต้ม (หรือกดปุ่มลัด 100/200/300) แล้วกด "สร้าง QR Code"
+   ระบบจะสุ่มรหัสสั้น ๆ เขียนลง Firestore ที่ collection "redeemCodes" พร้อม
+   จำนวนแต้มและสถานะ used:false จากนั้นแสดงรหัสนั้นเป็นภาพ QR ให้นักอ่านสแกน
+   ด้วยกล้องของตัวเองในไฟล์ index.html (ปุ่ม "สแกน QR Code เพื่อแลกรางวัล"
+   ในหน้าแลกแต้ม) แล้วคอยฟัง (onSnapshot) สถานะของรหัสนั้นแบบเรียลไทม์เพื่อขึ้น
+   ข้อความ "ถูกใช้แล้ว" ให้แอดมินเห็นทันทีที่สแกนสำเร็จ
+=================================================================== */
+let adminQrPoints = "";
+let adminQrUnsub = null;
+
+function renderAdminQrPointsDisplay(){
+  document.getElementById('adminQrPointsDisplay').textContent = adminQrPoints || "0";
+}
+
+document.getElementById('adminQrKeypad').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  if(btn.dataset.digit !== undefined){
+    if(adminQrPoints.length >= 5) return;
+    adminQrPoints = (adminQrPoints === "0" ? "" : adminQrPoints) + btn.dataset.digit;
+  } else if(btn.dataset.action === "clear"){
+    adminQrPoints = "";
+  } else if(btn.dataset.action === "back"){
+    adminQrPoints = adminQrPoints.slice(0, -1);
+  }
+  renderAdminQrPointsDisplay();
+});
+
+document.querySelectorAll('.qr-preset-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    adminQrPoints = btn.dataset.points;
+    renderAdminQrPointsDisplay();
+  });
+});
+
+/* ตัวอักษรที่ใช้สุ่มรหัสตัดตัวที่หน้าตาคล้ายกันออก (0/O, 1/I) กันอ่านผิด
+   เผื่อแอดมินต้องพิมพ์รหัสเองในกรณีกล้องนักอ่านอ่านไม่ได้ */
+function generateRedeemCodeString(len = 8){
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for(let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+function watchRedeemCode(code){
+  if(adminQrUnsub){ adminQrUnsub(); adminQrUnsub = null; }
+  const statusEl = document.getElementById('qrStatusText');
+  statusEl.textContent = "🕓 รอนักอ่านสแกน...";
+  statusEl.className = "qr-status waiting";
+
+  adminQrUnsub = db.collection('redeemCodes').doc(code).onSnapshot(doc=>{
+    if(!doc.exists) return;
+    const d = doc.data();
+    if(d.used){
+      statusEl.textContent = `✅ ถูกใช้แลกรางวัลแล้ว โดย ${d.usedByName || "-"}`;
+      statusEl.className = "qr-status used";
+    } else {
+      statusEl.textContent = "🕓 รอนักอ่านสแกน...";
+      statusEl.className = "qr-status waiting";
+    }
+  }, err=>{
+    console.warn("watchRedeemCode error:", err);
+  });
+}
+
+document.getElementById('adminGenerateQrBtn').addEventListener('click', async ()=>{
+  const points = parseInt(adminQrPoints, 10);
+  if(!points || points <= 0){
+    showToast("กรุณากดตัวเลขจำนวนแต้มก่อนสร้าง QR Code");
+    return;
+  }
+
+  const btn = document.getElementById('adminGenerateQrBtn');
+  btn.disabled = true;
+  btn.textContent = "กำลังสร้าง...";
+
+  try{
+    const code = generateRedeemCodeString();
+    await db.collection('redeemCodes').doc(code).set({
+      points,
+      used:false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: currentUserName,
+      usedBy:null,
+      usedByName:null,
+      usedAt:null
+    });
+
+    const box = document.getElementById('adminQrCodeBox');
+    box.innerHTML = "";
+    if(typeof QRCode === "undefined"){
+      box.innerHTML = `<div class="admin-qr-placeholder">สร้างรหัสแล้ว (${code}) แต่โหลดไลบรารีวาด QR ไม่สำเร็จ กรุณารีเฟรชหน้านี้</div>`;
+    } else {
+      new QRCode(box, {
+        text: code,
+        width: 200,
+        height: 200,
+        colorDark: "#24301F",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+    document.getElementById('adminQrCodeHint').textContent = `รหัส: ${code}`;
+
+    watchRedeemCode(code);
+    showToast(`สร้าง QR Code สำหรับ ${points} แต้มแล้ว`);
+
+    adminQrPoints = "";
+    renderAdminQrPointsDisplay();
+  }catch(err){
+    console.warn("generate QR error:", err);
+    showToast("สร้าง QR Code ไม่สำเร็จ กรุณาตรวจสอบสิทธิ์ Firestore แล้วลองใหม่");
+  }
+
+  btn.disabled = false;
+  btn.textContent = "สร้าง QR Code";
+});
+
+/* ===================================================================
+   รายงานสรุปแต้มนักอ่าน
+   โหลดผู้ใช้ทั้งหมดจาก collection "users" (ยกเว้นบัญชีที่ role: "admin"
+   เอง) พร้อมประวัติการแลกรางวัลของแต่ละคนจาก subcollection "redemptions"
+   แล้วคำนวณแต้มที่ได้รับสะสมทั้งหมด = แต้มคงเหลือ + แต้มที่ใช้แลกไปแล้ว
+   เรียงจากแต้มคงเหลือมากไปน้อย ต้องมี field role:"admin" ในบัญชีที่ล็อกอิน
+   อยู่ (เพิ่ม Firestore Security Rules ให้รองรับการอ่านข้าม user แล้ว)
+=================================================================== */
+let adminUsersData = [];
+let adminRedemptionsData = [];
+
+async function loadAdminDashboard(){
+  const usersTable = document.getElementById('adminUsersTable');
+  const redTable = document.getElementById('adminRedemptionsTable');
+  const summaryWrap = document.getElementById('adminSummary');
+
+  usersTable.innerHTML = `<tr><td class="admin-empty">กำลังโหลดข้อมูล...</td></tr>`;
+  redTable.innerHTML = "";
+  summaryWrap.innerHTML = "";
+
+  try{
+    const usersSnap = await db.collection('users').get();
+    const users = [];
+    const redemptions = [];
+
+    for(const docSnap of usersSnap.docs){
+      const d = docSnap.data();
+      if(d.role === "admin") continue; // ไม่นับบัญชีผู้ดูแลระบบเองในรายงาน
+
+      let redSnap;
+      try{
+        redSnap = await db.collection('users').doc(docSnap.id).collection('redemptions').orderBy('timestamp', 'desc').get();
+      }catch(e){
+        redSnap = { docs: [] };
+      }
+
+      const userRedemptions = redSnap.docs.map(rd=>{
+        const r = rd.data();
+        return {
+          rewardTitle: r.rewardTitle || "-",
+          cost: r.cost || 0,
+          timestamp: (r.timestamp && r.timestamp.toDate) ? r.timestamp.toDate() : null
+        };
+      });
+
+      const totalRedeemedPoints = userRedemptions.reduce((s, r)=> s + r.cost, 0);
+      const currentPoints = d.totalPoints || 0;
+      const totalEarnedPoints = currentPoints + totalRedeemedPoints;
+      const userName = d.name || "-";
+
+      users.push({
+        name: userName,
+        currentPoints,
+        totalEarnedPoints,
+        totalRedeemedPoints,
+        redeemCount: userRedemptions.length
+      });
+
+      userRedemptions.forEach(r=> redemptions.push({ userName, ...r }));
+    }
+
+    users.sort((a, b)=> b.currentPoints - a.currentPoints);
+    redemptions.sort((a, b)=> (b.timestamp || 0) - (a.timestamp || 0));
+
+    adminUsersData = users;
+    adminRedemptionsData = redemptions;
+
+    renderAdminSummary(users, redemptions);
+    renderAdminUsersTable(users);
+    renderAdminRedemptionsTable(redemptions);
+  }catch(err){
+    console.warn("loadAdminDashboard error:", err);
+    usersTable.innerHTML = `<tr><td class="admin-empty">ไม่สามารถโหลดข้อมูลได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง Firestore (Security Rules) ของบัญชีผู้ดูแลระบบ</td></tr>`;
+  }
+}
+
+function renderAdminSummary(users, redemptions){
+  const totalUsers = users.length;
+  const totalCurrentPoints = users.reduce((s, u)=> s + u.currentPoints, 0);
+  const totalRedeemedPoints = users.reduce((s, u)=> s + u.totalRedeemedPoints, 0);
+  const totalEarnedPoints = users.reduce((s, u)=> s + u.totalEarnedPoints, 0);
+
+  document.getElementById('adminSummary').innerHTML = `
+    <div class="admin-stat"><span class="num">${totalUsers}</span><span class="lbl">นักอ่านทั้งหมด</span></div>
+    <div class="admin-stat"><span class="num">${totalEarnedPoints}</span><span class="lbl">แต้มที่ได้รับสะสมทั้งหมด</span></div>
+    <div class="admin-stat"><span class="num">${totalRedeemedPoints}</span><span class="lbl">แต้มที่ใช้แลกรางวัลไปแล้ว</span></div>
+    <div class="admin-stat"><span class="num">${totalCurrentPoints}</span><span class="lbl">แต้มคงเหลือรวม</span></div>
+    <div class="admin-stat"><span class="num">${redemptions.length}</span><span class="lbl">ครั้งที่แลกรางวัล</span></div>
+  `;
+}
+
+function renderAdminUsersTable(users){
+  const table = document.getElementById('adminUsersTable');
+  if(users.length === 0){
+    table.innerHTML = `<tr><td class="admin-empty">ยังไม่มีนักอ่านในระบบ</td></tr>`;
+    return;
+  }
+  const rows = users.map((u, i)=> `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${u.name}</td>
+      <td>${u.currentPoints}</td>
+      <td>${u.totalEarnedPoints}</td>
+      <td>${u.totalRedeemedPoints}</td>
+      <td>${u.redeemCount}</td>
+    </tr>
+  `).join('');
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>ลำดับ</th>
+        <th>ชื่อนักอ่าน</th>
+        <th>แต้มคงเหลือ</th>
+        <th>แต้มที่ได้รับสะสม</th>
+        <th>แต้มที่ใช้ไป</th>
+        <th>จำนวนครั้งที่แลก</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  `;
+}
+
+function renderAdminRedemptionsTable(redemptions){
+  const table = document.getElementById('adminRedemptionsTable');
+  if(redemptions.length === 0){
+    table.innerHTML = `<tr><td class="admin-empty">ยังไม่มีประวัติการแลกรางวัล</td></tr>`;
+    return;
+  }
+  const rows = redemptions.map(r=> `
+    <tr>
+      <td>${r.userName}</td>
+      <td>${r.rewardTitle}</td>
+      <td>${r.cost}</td>
+      <td>${r.timestamp ? r.timestamp.toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' }) : "-"}</td>
+    </tr>
+  `).join('');
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>ชื่อนักอ่าน</th>
+        <th>รางวัลที่แลก</th>
+        <th>แต้มที่ใช้</th>
+        <th>วันเวลา</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  `;
+}
+
+document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminDashboard);
+
+document.getElementById('adminExportBtn').addEventListener('click', ()=>{
+  if(typeof XLSX === "undefined"){
+    showToast("โหลดไลบรารี Excel ไม่สำเร็จ กรุณาลองใหม่");
+    return;
+  }
+  const usersSheetData = adminUsersData.map((u, i)=>({
+    "ลำดับ": i + 1,
+    "ชื่อนักอ่าน": u.name,
+    "แต้มคงเหลือ": u.currentPoints,
+    "แต้มที่ได้รับสะสม": u.totalEarnedPoints,
+    "แต้มที่ใช้ไป": u.totalRedeemedPoints,
+    "จำนวนครั้งที่แลก": u.redeemCount
+  }));
+  const redSheetData = adminRedemptionsData.map(r=>({
+    "ชื่อนักอ่าน": r.userName,
+    "รางวัลที่แลก": r.rewardTitle,
+    "แต้มที่ใช้": r.cost,
+    "วันเวลา": r.timestamp ? r.timestamp.toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' }) : "-"
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const wsUsers = XLSX.utils.json_to_sheet(usersSheetData);
+  const wsRed = XLSX.utils.json_to_sheet(redSheetData);
+  XLSX.utils.book_append_sheet(wb, wsUsers, "สรุปนักอ่าน");
+  XLSX.utils.book_append_sheet(wb, wsRed, "ประวัติการแลกรางวัล");
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `รายงานห้องสมุดนักอ่าน_${dateStr}.xlsx`);
+});
+
+/* ===================================================================
+   CONTENT MANAGEMENT - เพิ่ม/แก้ไข/ลบ หนังสือ และ รางวัล โดยไม่ต้องแก้โค้ด
+   ข้อมูลจริงเก็บใน Firestore:
+     - collection "content"        -> หนังสือ (อ่านโดย index.html)
+     - collection "rewardsCatalog" -> รางวัล (อ่านโดย index.html)
+=================================================================== */
+function escapeHtmlAttr(s){
+  return String(s == null ? "" : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function blankQuestion(){ return { q:"", options:["","","",""], correct:0 }; }
+
+const categoriesForAdmin = [
+  { key:"history", title:"ประวัติศาสตร์ชาติไทย" },
+  { key:"novel", title:"นวนิยาย" },
+  { key:"inspire", title:"หนังสือสร้างแรงบันดาลใจ" },
+  { key:"agri", title:"ความรู้การเกษตร" },
+  { key:"science", title:"วิทยาศาสตร์" },
+  { key:"horror", title:"สยองขวัญ" }
+];
+
+/* ---------------- Rewards manager ---------------- */
+let rewardsListCache = [];
+
+async function loadRewardsManager(){
+  const wrap = document.getElementById('rewardsListWrap');
+  wrap.innerHTML = `<p class="admin-empty">กำลังโหลด...</p>`;
+  try{
+    const snap = await db.collection('rewardsCatalog').orderBy('order').get();
+    rewardsListCache = snap.docs.map(d => ({ key: d.id, ...d.data() }));
+    renderRewardsList();
+    checkSeedNote();
+  }catch(err){
+    console.warn("loadRewardsManager error:", err);
+    wrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore</p>`;
+  }
+}
+
+function renderRewardsList(){
+  const wrap = document.getElementById('rewardsListWrap');
+  if(rewardsListCache.length === 0){
+    wrap.innerHTML = `<p class="admin-empty">ยังไม่มีรางวัลในระบบ</p>`;
+    return;
+  }
+  wrap.innerHTML = rewardsListCache.map(r => `
+    <div class="admin-item-row">
+      <div class="admin-item-info">
+        <strong>${escapeHtmlAttr(r.title)}</strong>
+        <span>${typeof r.cost === "number" ? r.cost + " แต้ม" : escapeHtmlAttr(r.cost)} · รูป: ${escapeHtmlAttr(r.img) || "ไม่มี"}</span>
+      </div>
+      <div class="admin-item-actions">
+        <button class="btn secondary small" type="button" data-edit-reward="${r.key}">แก้ไข</button>
+        <button class="btn danger small" type="button" data-delete-reward="${r.key}">ลบ</button>
+      </div>
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('[data-edit-reward]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openRewardForm(btn.dataset.editReward));
+  });
+  wrap.querySelectorAll('[data-delete-reward]').forEach(btn=>{
+    btn.addEventListener('click', ()=> deleteReward(btn.dataset.deleteReward));
+  });
+}
+
+function openRewardForm(key){
+  const existing = key ? rewardsListCache.find(r => r.key === key) : null;
+  const formWrap = document.getElementById('rewardFormWrap');
+  formWrap.style.display = "block";
+  formWrap.innerHTML = `
+    <h3>${existing ? "แก้ไขรางวัล" : "เพิ่มรางวัลใหม่"}</h3>
+    <div class="admin-field">
+      <label>ชื่อรางวัล</label>
+      <input type="text" id="rfTitle" value="${escapeHtmlAttr(existing ? existing.title : "")}">
+    </div>
+    <div class="admin-field-row">
+      <div class="admin-field">
+        <label>จำนวนแต้ม (พิมพ์ - ถ้ายังไม่กำหนดตัวเลข)</label>
+        <input type="text" id="rfCost" value="${escapeHtmlAttr(existing ? existing.cost : "")}">
+      </div>
+      <div class="admin-field">
+        <label>สีพื้นหลังไอคอนสำรอง (เผื่อรูปโหลดไม่ขึ้น)</label>
+        <input type="text" id="rfColor" value="${escapeHtmlAttr(existing ? existing.color : "#B4791F")}">
+      </div>
+      <div class="admin-field">
+        <label>ลำดับแสดงผล</label>
+        <input type="number" id="rfOrder" value="${existing ? existing.order : rewardsListCache.length}">
+      </div>
+    </div>
+    <div class="admin-field">
+      <label>ชื่อไฟล์รูปภาพ (อัปโหลดขึ้น GitHub โฟลเดอร์เดียวกับ index.html ก่อน แล้วพิมพ์ชื่อไฟล์ตรงนี้ เช่น forbook.png) เว้นว่างได้ถ้ายังไม่มีรูป</label>
+      <input type="text" id="rfImg" value="${escapeHtmlAttr(existing ? existing.img : "")}" placeholder="เช่น forbook.png">
+    </div>
+    <div class="admin-form-actions">
+      <button class="btn" id="rfSaveBtn" type="button">บันทึก</button>
+      <button class="btn secondary" id="rfCancelBtn" type="button">ยกเลิก</button>
+    </div>
+  `;
+
+  document.getElementById('rfCancelBtn').addEventListener('click', ()=>{
+    formWrap.style.display = "none";
+    formWrap.innerHTML = "";
+  });
+
+  document.getElementById('rfSaveBtn').addEventListener('click', async ()=>{
+    const title = document.getElementById('rfTitle').value.trim();
+    let cost = document.getElementById('rfCost').value.trim();
+    const color = document.getElementById('rfColor').value.trim() || "#B4791F";
+    const img = document.getElementById('rfImg').value.trim();
+    const order = parseInt(document.getElementById('rfOrder').value, 10) || 0;
+
+    if(!title){ showToast("กรุณากรอกชื่อรางวัล"); return; }
+    if(cost === ""){
+      cost = "-";
+    } else {
+      const n = parseInt(cost, 10);
+      if(!isNaN(n) && String(n) === cost) cost = n;
+    }
+
+    const key = existing ? existing.key : ("reward_" + Date.now().toString(36));
+    const btn = document.getElementById('rfSaveBtn');
+    btn.disabled = true;
+    btn.textContent = "กำลังบันทึก...";
+
+    try{
+      await db.collection('rewardsCatalog').doc(key).set({ title, cost, color, img, order });
+      showToast("บันทึกรางวัลสำเร็จ");
+      formWrap.style.display = "none";
+      formWrap.innerHTML = "";
+      loadRewardsManager();
+    }catch(err){
+      console.warn("save reward error:", err);
+      showToast("บันทึกไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore");
+      btn.disabled = false;
+      btn.textContent = "บันทึก";
+    }
+  });
+}
+
+async function deleteReward(key){
+  if(!confirm("ยืนยันลบรางวัลนี้? การลบนี้ย้อนกลับไม่ได้")) return;
+  try{
+    await db.collection('rewardsCatalog').doc(key).delete();
+    showToast("ลบรางวัลแล้ว");
+    loadRewardsManager();
+  }catch(err){
+    console.warn("delete reward error:", err);
+    showToast("ลบไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore");
+  }
+}
+
+document.getElementById('addRewardBtn').addEventListener('click', ()=> openRewardForm(null));
+
+/* ---------------- Books manager ---------------- */
+let booksListCache = [];
+let bookDraft = null;
+
+async function loadBooksManager(){
+  const wrap = document.getElementById('booksListWrap');
+  wrap.innerHTML = `<p class="admin-empty">กำลังโหลด...</p>`;
+  try{
+    const snap = await db.collection('content').orderBy('order').get();
+    booksListCache = snap.docs.map(d => ({ key: d.id, ...d.data() }));
+    renderBooksList();
+    checkSeedNote();
+  }catch(err){
+    console.warn("loadBooksManager error:", err);
+    wrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore</p>`;
+  }
+}
+
+function checkSeedNote(){
+  const note = document.getElementById('seedNoteBox');
+  if(!note) return;
+  note.style.display = (booksListCache.length === 0 && rewardsListCache.length === 0) ? "block" : "none";
+}
+
+function renderBooksList(){
+  const wrap = document.getElementById('booksListWrap');
+  if(booksListCache.length === 0){
+    wrap.innerHTML = `<p class="admin-empty">ยังไม่มีหนังสือในระบบ</p>`;
+    return;
+  }
+  wrap.innerHTML = booksListCache.map(b=>{
+    const cat = categoriesForAdmin.find(c => c.key === b.categoryKey);
+    return `
+      <div class="admin-item-row">
+        <div class="admin-item-info">
+          <strong>${escapeHtmlAttr(b.title)}</strong>
+          <span>${cat ? cat.title : (b.categoryKey || "-")} · ${b.chapters ? b.chapters.length + " ตอน" : "เรื่องเดียวจบ"}</span>
+        </div>
+        <div class="admin-item-actions">
+          <button class="btn secondary small" type="button" data-edit-book="${b.key}">แก้ไข</button>
+          <button class="btn danger small" type="button" data-delete-book="${b.key}">ลบ</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.querySelectorAll('[data-edit-book]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openBookForm(btn.dataset.editBook));
+  });
+  wrap.querySelectorAll('[data-delete-book]').forEach(btn=>{
+    btn.addEventListener('click', ()=> deleteBook(btn.dataset.deleteBook));
+  });
+}
+
+async function deleteBook(key){
+  if(!confirm("ยืนยันลบหนังสือเล่มนี้? การลบนี้ย้อนกลับไม่ได้ (ประวัติการอ่าน/แต้มที่นักอ่านเคยได้จากเล่มนี้จะยังอยู่ ไม่ถูกลบไปด้วย)")) return;
+  try{
+    await db.collection('content').doc(key).delete();
+    showToast("ลบหนังสือแล้ว");
+    loadBooksManager();
+  }catch(err){
+    console.warn("delete book error:", err);
+    showToast("ลบไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore");
+  }
+}
+
+function openBookForm(key){
+  const existing = key ? booksListCache.find(b => b.key === key) : null;
+  if(existing){
+    bookDraft = {
+      key: existing.key,
+      title: existing.title || "",
+      categoryKey: existing.categoryKey || categoriesForAdmin[0].key,
+      color: existing.color || "#5A2A4C",
+      order: (existing.order != null) ? existing.order : booksListCache.length,
+      mode: existing.chapters ? "chapters" : "single",
+      passage: existing.passage || "",
+      questions: existing.questions && existing.questions.length ? JSON.parse(JSON.stringify(existing.questions)) : [blankQuestion()],
+      chapters: existing.chapters && existing.chapters.length ? JSON.parse(JSON.stringify(existing.chapters)) : [{ title:"", passage:"", questions:[blankQuestion()] }]
+    };
+  } else {
+    bookDraft = {
+      key: null,
+      title: "",
+      categoryKey: categoriesForAdmin[0].key,
+      color: "#5A2A4C",
+      order: booksListCache.length,
+      mode: "single",
+      passage: "",
+      questions: [blankQuestion()],
+      chapters: [{ title:"", passage:"", questions:[blankQuestion()] }]
+    };
+  }
+  document.getElementById('bookFormWrap').style.display = "block";
+  renderBookForm();
+  document.getElementById('bookFormWrap').scrollIntoView({ behavior:"smooth", block:"start" });
+}
+
+function renderQuestionsListHtml(questions, ctx){
+  return questions.map((q, i)=> `
+    <div class="admin-question-block">
+      <div class="admin-question-block-head">
+        <strong>คำถามข้อ ${i + 1}</strong>
+        <button type="button" class="admin-remove-btn" data-action="removeQuestion" data-ctx="${ctx}" data-qidx="${i}">ลบข้อนี้</button>
+      </div>
+      <input type="text" class="admin-q-input" data-action="qText" data-ctx="${ctx}" data-qidx="${i}" placeholder="พิมพ์คำถาม" value="${escapeHtmlAttr(q.q)}">
+      ${q.options.map((opt, oi)=> `
+        <div class="admin-option-row">
+          <input type="radio" name="correct_${ctx}_${i}" data-action="qCorrect" data-ctx="${ctx}" data-qidx="${i}" data-oidx="${oi}" ${q.correct === oi ? "checked" : ""}>
+          <input type="text" class="admin-opt-input" data-action="qOption" data-ctx="${ctx}" data-qidx="${i}" data-oidx="${oi}" placeholder="ตัวเลือกที่ ${oi + 1}" value="${escapeHtmlAttr(opt)}">
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+function renderChaptersListHtml(chapters){
+  return chapters.map((ch, i)=> `
+    <div class="admin-chapter-block">
+      <div class="admin-chapter-block-head">
+        <strong>ตอนที่ ${i + 1}</strong>
+        <button type="button" class="admin-remove-btn" data-action="removeChapter" data-chidx="${i}">ลบตอนนี้</button>
+      </div>
+      <div class="admin-field">
+        <label>ชื่อตอน</label>
+        <input type="text" data-action="chapterTitle" data-ctx="ch${i}" value="${escapeHtmlAttr(ch.title)}">
+      </div>
+      <div class="admin-field">
+        <label>เนื้อเรื่องตอนนี้</label>
+        <textarea rows="5" data-action="chapterPassage" data-ctx="ch${i}">${escapeHtmlAttr(ch.passage)}</textarea>
+      </div>
+      <div class="admin-questions-block">
+        <label>คำถามท้ายตอน</label>
+        ${renderQuestionsListHtml(ch.questions, "ch" + i)}
+        <button type="button" class="btn secondary small" data-action="addQuestionToChapter" data-chidx="${i}">+ เพิ่มคำถามในตอนนี้</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getQuestionsArrByCtx(ctx){
+  if(ctx === "root") return bookDraft.questions;
+  const chIdx = parseInt(ctx.slice(2), 10);
+  return bookDraft.chapters[chIdx].questions;
+}
+
+function renderBookForm(){
+  const formWrap = document.getElementById('bookFormWrap');
+  const d = bookDraft;
+
+  const categoryOptionsHtml = categoriesForAdmin.map(c=>
+    `<option value="${c.key}" ${d.categoryKey === c.key ? "selected" : ""}>${c.title}</option>`
+  ).join('');
+
+  let bodyHtml;
+  if(d.mode === "single"){
+    bodyHtml = `
+      <div class="admin-field">
+        <label>เนื้อเรื่อง</label>
+        <textarea id="bfPassage" rows="7">${escapeHtmlAttr(d.passage)}</textarea>
+      </div>
+      <div class="admin-questions-block">
+        <label>คำถามท้ายเรื่อง</label>
+        <div id="bfQuestionsList">${renderQuestionsListHtml(d.questions, "root")}</div>
+        <button class="btn secondary small" type="button" data-action="addQuestion">+ เพิ่มคำถาม</button>
+      </div>
+    `;
+  } else {
+    bodyHtml = `
+      <div id="bfChaptersList">${renderChaptersListHtml(d.chapters)}</div>
+      <button class="btn secondary small" type="button" data-action="addChapter">+ เพิ่มตอนใหม่</button>
+    `;
+  }
+
+  formWrap.innerHTML = `
+    <h3>${d.key ? "แก้ไขหนังสือ" : "เพิ่มหนังสือใหม่"}</h3>
+    <div class="admin-field">
+      <label>ชื่อเรื่อง</label>
+      <input type="text" id="bfTitle" value="${escapeHtmlAttr(d.title)}">
+    </div>
+    <div class="admin-field-row">
+      <div class="admin-field">
+        <label>หมวดหมู่</label>
+        <select id="bfCategory">${categoryOptionsHtml}</select>
+      </div>
+      <div class="admin-field">
+        <label>สีปก (เช่น #5A2A4C)</label>
+        <input type="text" id="bfColor" value="${escapeHtmlAttr(d.color)}">
+      </div>
+      <div class="admin-field">
+        <label>ลำดับแสดงผล</label>
+        <input type="number" id="bfOrder" value="${d.order}">
+      </div>
+    </div>
+    <div class="admin-mode-toggle">
+      <label><input type="radio" name="bfMode" value="single" ${d.mode === "single" ? "checked" : ""}> เรื่องเดียวจบ</label>
+      <label><input type="radio" name="bfMode" value="chapters" ${d.mode === "chapters" ? "checked" : ""}> แบบรายตอน</label>
+    </div>
+    <div id="bfModeBody">${bodyHtml}</div>
+    <div class="admin-form-actions">
+      <button class="btn" id="bfSaveBtn" type="button">บันทึก</button>
+      <button class="btn secondary" id="bfCancelBtn" type="button">ยกเลิก</button>
+    </div>
+  `;
+
+  wireBookFormEvents();
+}
+
+function wireBookFormEvents(){
+  const formWrap = document.getElementById('bookFormWrap');
+
+  document.getElementById('bfTitle').addEventListener('input', e=> bookDraft.title = e.target.value);
+  document.getElementById('bfCategory').addEventListener('change', e=> bookDraft.categoryKey = e.target.value);
+  document.getElementById('bfColor').addEventListener('input', e=> bookDraft.color = e.target.value);
+  document.getElementById('bfOrder').addEventListener('input', e=> bookDraft.order = parseInt(e.target.value, 10) || 0);
+
+  formWrap.querySelectorAll('input[name="bfMode"]').forEach(radio=>{
+    radio.addEventListener('change', e=>{
+      bookDraft.mode = e.target.value;
+      renderBookForm();
+    });
+  });
+
+  const passageEl = document.getElementById('bfPassage');
+  if(passageEl) passageEl.addEventListener('input', e=> bookDraft.passage = e.target.value);
+
+  const modeBody = document.getElementById('bfModeBody');
+
+  modeBody.addEventListener('input', e=>{
+    const el = e.target;
+    const action = el.dataset.action;
+    if(!action) return;
+    const ctx = el.dataset.ctx;
+
+    if(action === "qText"){
+      getQuestionsArrByCtx(ctx)[parseInt(el.dataset.qidx, 10)].q = el.value;
+    } else if(action === "qOption"){
+      getQuestionsArrByCtx(ctx)[parseInt(el.dataset.qidx, 10)].options[parseInt(el.dataset.oidx, 10)] = el.value;
+    } else if(action === "chapterTitle"){
+      bookDraft.chapters[parseInt(ctx.slice(2), 10)].title = el.value;
+    } else if(action === "chapterPassage"){
+      bookDraft.chapters[parseInt(ctx.slice(2), 10)].passage = el.value;
+    }
+  });
+
+  modeBody.addEventListener('change', e=>{
+    const el = e.target;
+    if(el.dataset.action === "qCorrect"){
+      getQuestionsArrByCtx(el.dataset.ctx)[parseInt(el.dataset.qidx, 10)].correct = parseInt(el.dataset.oidx, 10);
+    }
+  });
+
+  modeBody.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    const action = btn.dataset.action;
+
+    if(action === "addQuestion"){
+      bookDraft.questions.push(blankQuestion());
+      renderBookForm();
+    } else if(action === "removeQuestion"){
+      const arr = getQuestionsArrByCtx(btn.dataset.ctx);
+      if(arr.length <= 1){ showToast("ต้องมีอย่างน้อย 1 คำถาม"); return; }
+      arr.splice(parseInt(btn.dataset.qidx, 10), 1);
+      renderBookForm();
+    } else if(action === "addChapter"){
+      bookDraft.chapters.push({ title:"", passage:"", questions:[blankQuestion()] });
+      renderBookForm();
+    } else if(action === "removeChapter"){
+      if(bookDraft.chapters.length <= 1){ showToast("ต้องมีอย่างน้อย 1 ตอน"); return; }
+      bookDraft.chapters.splice(parseInt(btn.dataset.chidx, 10), 1);
+      renderBookForm();
+    } else if(action === "addQuestionToChapter"){
+      bookDraft.chapters[parseInt(btn.dataset.chidx, 10)].questions.push(blankQuestion());
+      renderBookForm();
+    }
+  });
+
+  document.getElementById('bfCancelBtn').addEventListener('click', ()=>{
+    formWrap.style.display = "none";
+    formWrap.innerHTML = "";
+    bookDraft = null;
+  });
+
+  document.getElementById('bfSaveBtn').addEventListener('click', async ()=>{
+    const d = bookDraft;
+    if(!d.title.trim()){ showToast("กรุณากรอกชื่อเรื่อง"); return; }
+
+    const payload = {
+      categoryKey: d.categoryKey,
+      title: d.title.trim(),
+      color: d.color.trim() || "#5A2A4C",
+      order: d.order || 0
+    };
+
+    if(d.mode === "single"){
+      const cleanQuestions = d.questions
+        .filter(q=> q.q.trim())
+        .map(q=> ({ q:q.q.trim(), options:q.options.map(o=>o.trim()), correct:q.correct }));
+      if(!d.passage.trim()){ showToast("กรุณากรอกเนื้อเรื่อง"); return; }
+      if(cleanQuestions.length === 0){ showToast("กรุณากรอกอย่างน้อย 1 คำถาม"); return; }
+      payload.passage = d.passage.trim();
+      payload.questions = cleanQuestions;
+      payload.chapters = firebase.firestore.FieldValue.delete();
+    } else {
+      const cleanChapters = d.chapters
+        .filter(ch=> ch.title.trim() || ch.passage.trim())
+        .map(ch=> ({
+          title: ch.title.trim(),
+          passage: ch.passage.trim(),
+          questions: ch.questions.filter(q=>q.q.trim()).map(q=>({ q:q.q.trim(), options:q.options.map(o=>o.trim()), correct:q.correct }))
+        }));
+      if(cleanChapters.length === 0){ showToast("กรุณากรอกอย่างน้อย 1 ตอน"); return; }
+      payload.chapters = cleanChapters;
+      payload.passage = firebase.firestore.FieldValue.delete();
+      payload.questions = firebase.firestore.FieldValue.delete();
+    }
+
+    const key = d.key || ("book_" + Date.now().toString(36));
+    const btn = document.getElementById('bfSaveBtn');
+    btn.disabled = true;
+    btn.textContent = "กำลังบันทึก...";
+
+    try{
+      await db.collection('content').doc(key).set(payload, { merge:true });
+      showToast("บันทึกหนังสือสำเร็จ");
+      formWrap.style.display = "none";
+      formWrap.innerHTML = "";
+      bookDraft = null;
+      loadBooksManager();
+    }catch(err){
+      console.warn("save book error:", err);
+      showToast("บันทึกไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore");
+      btn.disabled = false;
+      btn.textContent = "บันทึก";
+    }
+  });
+}
+
+document.getElementById('addBookBtn').addEventListener('click', ()=> openBookForm(null));
+</script>
+</body>
+</html>
