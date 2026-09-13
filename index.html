@@ -199,6 +199,19 @@
   .admin-field-row .admin-field{ flex:1 1 140px; }
 
   .admin-mode-toggle{ display:flex; gap:20px; margin-bottom:16px; font-size:13.5px; }
+  .admin-color-input{
+    -webkit-appearance:none;
+    appearance:none;
+    width:100% !important;
+    height:44px;
+    padding:4px !important;
+    border:1px solid rgba(42,29,18,0.3);
+    border-radius:4px;
+    background:rgba(255,255,255,0.7);
+    cursor:pointer;
+  }
+  .admin-color-input::-webkit-color-swatch-wrapper{ padding:0; }
+  .admin-color-input::-webkit-color-swatch{ border:none; border-radius:3px; }
   .admin-mode-toggle label{ display:flex; align-items:center; gap:6px; cursor:pointer; }
 
   .admin-question-block, .admin-chapter-block{
@@ -953,12 +966,16 @@ function escapeHtmlAttr(s){
 function blankQuestion(){ return { q:"", options:["","","",""], correct:0 }; }
 
 const categoriesForAdmin = [
-  { key:"history", title:"ประวัติศาสตร์ชาติไทย" },
-  { key:"novel", title:"นวนิยาย" },
-  { key:"inspire", title:"หนังสือสร้างแรงบันดาลใจ" },
-  { key:"agri", title:"ความรู้การเกษตร" },
-  { key:"science", title:"วิทยาศาสตร์" },
-  { key:"horror", title:"สยองขวัญ" }
+  { key:"000", title:"000 – เบ็ดเตล็ด หรือความรู้ทั่วไป" },
+  { key:"100", title:"100 – ปรัชญา" },
+  { key:"200", title:"200 – ศาสนา" },
+  { key:"300", title:"300 – สังคมศาสตร์" },
+  { key:"400", title:"400 – ภาษาศาสตร์" },
+  { key:"500", title:"500 – วิทยาศาสตร์" },
+  { key:"600", title:"600 – วิทยาศาสตร์ประยุกต์" },
+  { key:"700", title:"700 – ศิลปะและการบันเทิง" },
+  { key:"800", title:"800 – วรรณคดี" },
+  { key:"900", title:"900 – ภูมิศาสตร์และประวัติศาสตร์" }
 ];
 
 /* ---------------- Rewards manager ---------------- */
@@ -1022,7 +1039,7 @@ function openRewardForm(key){
       </div>
       <div class="admin-field">
         <label>สีพื้นหลังไอคอนสำรอง (เผื่อรูปโหลดไม่ขึ้น)</label>
-        <input type="text" id="rfColor" value="${escapeHtmlAttr(existing ? existing.color : "#B4791F")}">
+        <input type="color" class="admin-color-input" id="rfColor" value="${escapeHtmlAttr(existing ? existing.color : "#B4791F")}">
       </div>
       <div class="admin-field">
         <label>ลำดับแสดงผล</label>
@@ -1279,8 +1296,8 @@ function renderBookForm(){
         <select id="bfCategory">${categoryOptionsHtml}</select>
       </div>
       <div class="admin-field">
-        <label>สีปก (เช่น #5A2A4C)</label>
-        <input type="text" id="bfColor" value="${escapeHtmlAttr(d.color)}">
+        <label>สีปกหนังสือ (คลิกเพื่อเลือกสี)</label>
+        <input type="color" class="admin-color-input" id="bfColor" value="${escapeHtmlAttr(d.color)}">
       </div>
       <div class="admin-field">
         <label>ลำดับแสดงผล</label>
