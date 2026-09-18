@@ -966,16 +966,14 @@ function escapeHtmlAttr(s){
 function blankQuestion(){ return { q:"", options:["","","",""], correct:0 }; }
 
 const categoriesForAdmin = [
-  { key:"000", title:"000 – เบ็ดเตล็ด หรือความรู้ทั่วไป" },
-  { key:"100", title:"100 – ปรัชญา" },
-  { key:"200", title:"200 – ศาสนา" },
-  { key:"300", title:"300 – สังคมศาสตร์" },
-  { key:"400", title:"400 – ภาษาศาสตร์" },
-  { key:"500", title:"500 – วิทยาศาสตร์" },
-  { key:"600", title:"600 – วิทยาศาสตร์ประยุกต์" },
-  { key:"700", title:"700 – ศิลปะและการบันเทิง" },
-  { key:"800", title:"800 – วรรณคดี" },
-  { key:"900", title:"900 – ภูมิศาสตร์และประวัติศาสตร์" }
+  { key:"royal", title:"👑 หนังสือพระราชนิพนธ์" },
+  { key:"novel", title:"📖 นวนิยาย & เรื่องแต่ง" },
+  { key:"horror", title:"👻 สยองขวัญ" },
+  { key:"history", title:"🏛️ ประวัติศาสตร์ & ตำนาน" },
+  { key:"inspire", title:"✨ แรงบันดาลใจ & พัฒนาตนเอง" },
+  { key:"science", title:"🔬 วิทยาศาสตร์ & เทคโนโลยี" },
+  { key:"agri", title:"🌱 เกษตร & สิ่งแวดล้อม" },
+  { key:"travel", title:"🗺️ ท่องเที่ยว & วัฒนธรรม" }
 ];
 
 /* ---------------- Rewards manager ---------------- */
@@ -1145,8 +1143,8 @@ function renderBooksList(){
     return `
       <div class="admin-item-row">
         <div class="admin-item-info">
-          <strong>${escapeHtmlAttr(b.title)}</strong>
-          <span>${cat ? cat.title : (b.categoryKey || "-")} · ${b.chapters ? b.chapters.length + " ตอน" : "เรื่องเดียวจบ"}</span>
+          <strong>${b.featured ? "🌟 " : ""}${escapeHtmlAttr(b.title)}</strong>
+          <span>${cat ? cat.title : (b.categoryKey || "-")} · ${b.chapters ? b.chapters.length + " ตอน" : "เรื่องเดียวจบ"}${b.blurb ? " · " + escapeHtmlAttr(b.blurb) : ""}</span>
         </div>
         <div class="admin-item-actions">
           <button class="btn secondary small" type="button" data-edit-book="${b.key}">แก้ไข</button>
@@ -1182,6 +1180,8 @@ function openBookForm(key){
     bookDraft = {
       key: existing.key,
       title: existing.title || "",
+      blurb: existing.blurb || "",
+      featured: !!existing.featured,
       categoryKey: existing.categoryKey || categoriesForAdmin[0].key,
       color: existing.color || "#5A2A4C",
       order: (existing.order != null) ? existing.order : booksListCache.length,
@@ -1194,6 +1194,8 @@ function openBookForm(key){
     bookDraft = {
       key: null,
       title: "",
+      blurb: "",
+      featured: false,
       categoryKey: categoriesForAdmin[0].key,
       color: "#5A2A4C",
       order: booksListCache.length,
@@ -1290,6 +1292,16 @@ function renderBookForm(){
       <label>ชื่อเรื่อง</label>
       <input type="text" id="bfTitle" value="${escapeHtmlAttr(d.title)}">
     </div>
+    <div class="admin-field">
+      <label>คำโปรยสั้น ๆ (ขึ้นใต้ชื่อเรื่องทุกที่ ช่วยให้นักอ่านอยากเปิดอ่าน เช่น "ผีในห้องเช่าที่ไม่เคยว่างจริง ๆ")</label>
+      <input type="text" id="bfBlurb" value="${escapeHtmlAttr(d.blurb)}" placeholder="พิมพ์คำโปรย 1 บรรทัด" maxlength="80">
+    </div>
+    <div class="admin-field">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input type="checkbox" id="bfFeatured" ${d.featured ? "checked" : ""} style="width:auto;">
+        🌟 ตั้งเป็น "เล่มแนะนำ" (ขึ้นแสดงในแถบพิเศษบนสุดของหน้าเว็บ)
+      </label>
+    </div>
     <div class="admin-field-row">
       <div class="admin-field">
         <label>หมวดหมู่</label>
@@ -1322,6 +1334,8 @@ function wireBookFormEvents(){
   const formWrap = document.getElementById('bookFormWrap');
 
   document.getElementById('bfTitle').addEventListener('input', e=> bookDraft.title = e.target.value);
+  document.getElementById('bfBlurb').addEventListener('input', e=> bookDraft.blurb = e.target.value);
+  document.getElementById('bfFeatured').addEventListener('change', e=> bookDraft.featured = e.target.checked);
   document.getElementById('bfCategory').addEventListener('change', e=> bookDraft.categoryKey = e.target.value);
   document.getElementById('bfColor').addEventListener('input', e=> bookDraft.color = e.target.value);
   document.getElementById('bfOrder').addEventListener('input', e=> bookDraft.order = parseInt(e.target.value, 10) || 0);
@@ -1401,9 +1415,17 @@ function wireBookFormEvents(){
     const payload = {
       categoryKey: d.categoryKey,
       title: d.title.trim(),
+      blurb: d.blurb.trim(),
+      featured: !!d.featured,
       color: d.color.trim() || "#5A2A4C",
       order: d.order || 0
     };
+
+    if(!d.key){
+      /* หนังสือเล่มใหม่เท่านั้นที่ตั้ง createdAt ให้ (ตอนแก้ไขเล่มเดิมจะไม่แตะ
+         field นี้อีก) index.html ใช้ค่านี้คำนวณว่าจะขึ้นป้าย "ใหม่" ให้ไหม */
+      payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    }
 
     if(d.mode === "single"){
       const cleanQuestions = d.questions
