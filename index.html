@@ -1188,7 +1188,7 @@ function openBookForm(key){
       mode: existing.chapters ? "chapters" : "single",
       passage: existing.passage || "",
       questions: existing.questions && existing.questions.length ? JSON.parse(JSON.stringify(existing.questions)) : [blankQuestion()],
-      chapters: existing.chapters && existing.chapters.length ? JSON.parse(JSON.stringify(existing.chapters)) : [{ title:"", passage:"", questions:[blankQuestion()] }]
+      chapters: existing.chapters && existing.chapters.length ? JSON.parse(JSON.stringify(existing.chapters)) : [{ title:"", image:"", passage:"", questions:[blankQuestion()] }]
     };
   } else {
     bookDraft = {
@@ -1202,7 +1202,7 @@ function openBookForm(key){
       mode: "single",
       passage: "",
       questions: [blankQuestion()],
-      chapters: [{ title:"", passage:"", questions:[blankQuestion()] }]
+      chapters: [{ title:"", image:"", passage:"", questions:[blankQuestion()] }]
     };
   }
   document.getElementById('bookFormWrap').style.display = "block";
@@ -1238,6 +1238,10 @@ function renderChaptersListHtml(chapters){
       <div class="admin-field">
         <label>ชื่อตอน</label>
         <input type="text" data-action="chapterTitle" data-ctx="ch${i}" value="${escapeHtmlAttr(ch.title)}">
+      </div>
+      <div class="admin-field">
+        <label>ชื่อไฟล์ภาพประกอบตอนนี้ (อัปโหลดขึ้น GitHub โฟลเดอร์เดียวกับ index.html ก่อน แล้วพิมพ์ชื่อไฟล์ตรงนี้ เว้นว่างได้ถ้าไม่มีภาพ)</label>
+        <input type="text" data-action="chapterImage" data-ctx="ch${i}" value="${escapeHtmlAttr(ch.image || '')}" placeholder="เช่น chiangrai_watrongkhun.jpg">
       </div>
       <div class="admin-field">
         <label>เนื้อเรื่องตอนนี้</label>
@@ -1364,6 +1368,8 @@ function wireBookFormEvents(){
       getQuestionsArrByCtx(ctx)[parseInt(el.dataset.qidx, 10)].options[parseInt(el.dataset.oidx, 10)] = el.value;
     } else if(action === "chapterTitle"){
       bookDraft.chapters[parseInt(ctx.slice(2), 10)].title = el.value;
+    } else if(action === "chapterImage"){
+      bookDraft.chapters[parseInt(ctx.slice(2), 10)].image = el.value;
     } else if(action === "chapterPassage"){
       bookDraft.chapters[parseInt(ctx.slice(2), 10)].passage = el.value;
     }
@@ -1390,7 +1396,7 @@ function wireBookFormEvents(){
       arr.splice(parseInt(btn.dataset.qidx, 10), 1);
       renderBookForm();
     } else if(action === "addChapter"){
-      bookDraft.chapters.push({ title:"", passage:"", questions:[blankQuestion()] });
+      bookDraft.chapters.push({ title:"", image:"", passage:"", questions:[blankQuestion()] });
       renderBookForm();
     } else if(action === "removeChapter"){
       if(bookDraft.chapters.length <= 1){ showToast("ต้องมีอย่างน้อย 1 ตอน"); return; }
@@ -1441,6 +1447,7 @@ function wireBookFormEvents(){
         .filter(ch=> ch.title.trim() || ch.passage.trim())
         .map(ch=> ({
           title: ch.title.trim(),
+          image: (ch.image || "").trim(),
           passage: ch.passage.trim(),
           questions: ch.questions.filter(q=>q.q.trim()).map(q=>({ q:q.q.trim(), options:q.options.map(o=>o.trim()), correct:q.correct }))
         }));
