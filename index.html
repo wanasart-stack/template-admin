@@ -162,6 +162,31 @@
   }
   .admin-content-wrap h2{ font-size:18px; margin:0 0 8px; color:var(--wood-dark); }
   .admin-content-desc{ font-size:12.5px; color:var(--ink-soft); margin:0 0 18px; line-height:1.7; }
+  .admin-cat-filter-bar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:18px;
+    padding-bottom:16px;
+    border-bottom:1px solid rgba(42,29,18,0.14);
+  }
+  .admin-cat-filter-btn{
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid rgba(42,29,18,0.28);
+    background:rgba(255,255,255,0.6);
+    color:var(--ink);
+    font-family:'Sarabun', sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .admin-cat-filter-btn:hover{ background:#fff; }
+  .admin-cat-filter-btn.active{
+    background:var(--wood-dark);
+    border-color:var(--wood-dark);
+    color:var(--cream);
+  }
   .admin-item-row{
     display:flex;
     align-items:center;
@@ -455,6 +480,7 @@
       <div class="admin-seed-note" id="seedNoteBox" style="display:none;">
         ยังไม่มีข้อมูลหนังสือ/รางวัลใน Firestore เลย ถ้าเป็นการเปิดใช้ระบบนี้ครั้งแรก ให้เปิดไฟล์ <code>index.html</code> ล็อกอินด้วยบัญชีแอดมินก่อน แล้วกด F12 เปิด Console พิมพ์คำสั่ง <code>seedContentToFirestore()</code> แล้ว Enter หนึ่งครั้ง เพื่อนำเข้าหนังสือ 36 เล่ม + รางวัลเดิมเข้ามาก่อน จากนั้นกลับมาหน้านี้แล้วกด "รีเฟรชข้อมูล" (ทำครั้งเดียวพอ)
       </div>
+      <div class="admin-cat-filter-bar" id="adminCatFilterBar"></div>
       <div id="booksListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
       <button class="btn" id="addBookBtn" type="button">+ เพิ่มหนังสือใหม่</button>
       <div id="bookFormWrap" style="display:none; margin-top:18px;"></div>
@@ -1111,6 +1137,11 @@ document.getElementById('addRewardBtn').addEventListener('click', ()=> openRewar
 /* ---------------- Books manager ---------------- */
 let booksListCache = [];
 let bookDraft = null;
+/* null = แสดงหนังสือทุกหมวดหมู่ปนกัน (เหมือนเดิม) ถ้าเลือกหมวดใดหมวดหนึ่ง
+   จะกรองให้เห็นเฉพาะหนังสือของหมวดนั้น เหมือนแยกเป็นหน้าจัดการของหมวดนั้น
+   โดยเฉพาะ - ปุ่ม "เพิ่มหนังสือใหม่" จะตั้งหมวดหมู่เริ่มต้นให้ตรงกับที่เลือกไว้
+   ให้อัตโนมัติด้วย */
+let activeBookCategoryFilter = null;
 
 async function loadBooksManager(){
   const wrap = document.getElementById('booksListWrap');
@@ -1118,12 +1149,33 @@ async function loadBooksManager(){
   try{
     const snap = await db.collection('content').orderBy('order').get();
     booksListCache = snap.docs.map(d => ({ key: d.id, ...d.data() }));
+    renderBookCategoryFilterBar();
     renderBooksList();
     checkSeedNote();
   }catch(err){
     console.warn("loadBooksManager error:", err);
     wrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore</p>`;
   }
+}
+
+function renderBookCategoryFilterBar(){
+  const bar = document.getElementById('adminCatFilterBar');
+  if(!bar) return;
+  const countAll = booksListCache.length;
+  const allBtn = `<button type="button" class="admin-cat-filter-btn${activeBookCategoryFilter === null ? ' active' : ''}" data-cat="">ทั้งหมด (${countAll})</button>`;
+  const catBtns = categoriesForAdmin.map(cat=>{
+    const n = booksListCache.filter(b=> b.categoryKey === cat.key).length;
+    return `<button type="button" class="admin-cat-filter-btn${activeBookCategoryFilter === cat.key ? ' active' : ''}" data-cat="${cat.key}">${cat.title} (${n})</button>`;
+  }).join('');
+  bar.innerHTML = allBtn + catBtns;
+
+  bar.querySelectorAll('.admin-cat-filter-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      activeBookCategoryFilter = btn.dataset.cat || null;
+      renderBookCategoryFilterBar();
+      renderBooksList();
+    });
+  });
 }
 
 function checkSeedNote(){
@@ -1134,17 +1186,25 @@ function checkSeedNote(){
 
 function renderBooksList(){
   const wrap = document.getElementById('booksListWrap');
+  const listToShow = activeBookCategoryFilter === null
+    ? booksListCache
+    : booksListCache.filter(b=> b.categoryKey === activeBookCategoryFilter);
+
   if(booksListCache.length === 0){
     wrap.innerHTML = `<p class="admin-empty">ยังไม่มีหนังสือในระบบ</p>`;
     return;
   }
-  wrap.innerHTML = booksListCache.map(b=>{
+  if(listToShow.length === 0){
+    wrap.innerHTML = `<p class="admin-empty">ยังไม่มีหนังสือในหมวดนี้</p>`;
+    return;
+  }
+  wrap.innerHTML = listToShow.map(b=>{
     const cat = categoriesForAdmin.find(c => c.key === b.categoryKey);
     return `
       <div class="admin-item-row">
         <div class="admin-item-info">
           <strong>${b.featured ? "🌟 " : ""}${escapeHtmlAttr(b.title)}</strong>
-          <span>${cat ? cat.title : (b.categoryKey || "-")} · ${b.chapters ? b.chapters.length + " ตอน" : "เรื่องเดียวจบ"}${b.blurb ? " · " + escapeHtmlAttr(b.blurb) : ""}</span>
+          <span>${cat ? cat.title : (b.categoryKey || "-")} · ${b.chapters ? b.chapters.length + " ตอน" : "เรื่องเดียวจบ"}${b.coverImg ? " · มีรูปปก" : ""}${b.blurb ? " · " + escapeHtmlAttr(b.blurb) : ""}</span>
         </div>
         <div class="admin-item-actions">
           <button class="btn secondary small" type="button" data-edit-book="${b.key}">แก้ไข</button>
@@ -1184,6 +1244,7 @@ function openBookForm(key){
       featured: !!existing.featured,
       categoryKey: existing.categoryKey || categoriesForAdmin[0].key,
       color: existing.color || "#5A2A4C",
+      coverImg: existing.coverImg || "",
       order: (existing.order != null) ? existing.order : booksListCache.length,
       mode: existing.chapters ? "chapters" : "single",
       passage: existing.passage || "",
@@ -1196,8 +1257,9 @@ function openBookForm(key){
       title: "",
       blurb: "",
       featured: false,
-      categoryKey: categoriesForAdmin[0].key,
+      categoryKey: activeBookCategoryFilter || categoriesForAdmin[0].key,
       color: "#5A2A4C",
+      coverImg: "",
       order: booksListCache.length,
       mode: "single",
       passage: "",
@@ -1306,13 +1368,17 @@ function renderBookForm(){
         🌟 ตั้งเป็น "เล่มแนะนำ" (ขึ้นแสดงในแถบพิเศษบนสุดของหน้าเว็บ)
       </label>
     </div>
+    <div class="admin-field">
+      <label>รูปปกหนังสือ (ไม่บังคับ - อัปโหลดขึ้น GitHub โฟลเดอร์เดียวกับ index.html ก่อน แล้วพิมพ์ชื่อไฟล์ตรงนี้ เพื่อให้ปกดูน่าอ่านขึ้น ถ้าเว้นว่างไว้ ระบบจะใช้ "สีปกหนังสือ" ด้านล่างแทนเหมือนเดิม)</label>
+      <input type="text" id="bfCoverImg" value="${escapeHtmlAttr(d.coverImg)}" placeholder="เช่น cover_hor1.jpg">
+    </div>
     <div class="admin-field-row">
       <div class="admin-field">
         <label>หมวดหมู่</label>
         <select id="bfCategory">${categoryOptionsHtml}</select>
       </div>
       <div class="admin-field">
-        <label>สีปกหนังสือ (คลิกเพื่อเลือกสี)</label>
+        <label>สีปกหนังสือ (ใช้เป็นพื้นหลังเสมอ และใช้แทนรูปถ้าไม่ได้ใส่รูปปกไว้)</label>
         <input type="color" class="admin-color-input" id="bfColor" value="${escapeHtmlAttr(d.color)}">
       </div>
       <div class="admin-field">
@@ -1342,6 +1408,7 @@ function wireBookFormEvents(){
   document.getElementById('bfFeatured').addEventListener('change', e=> bookDraft.featured = e.target.checked);
   document.getElementById('bfCategory').addEventListener('change', e=> bookDraft.categoryKey = e.target.value);
   document.getElementById('bfColor').addEventListener('input', e=> bookDraft.color = e.target.value);
+  document.getElementById('bfCoverImg').addEventListener('input', e=> bookDraft.coverImg = e.target.value);
   document.getElementById('bfOrder').addEventListener('input', e=> bookDraft.order = parseInt(e.target.value, 10) || 0);
 
   formWrap.querySelectorAll('input[name="bfMode"]').forEach(radio=>{
@@ -1424,6 +1491,7 @@ function wireBookFormEvents(){
       blurb: d.blurb.trim(),
       featured: !!d.featured,
       color: d.color.trim() || "#5A2A4C",
+      coverImg: (d.coverImg || "").trim(),
       order: d.order || 0
     };
 
