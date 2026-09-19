@@ -203,6 +203,15 @@
   .admin-item-info strong{ font-size:14px; color:var(--ink); }
   .admin-item-info span{ font-size:12px; color:var(--ink-soft); }
   .admin-item-actions{ display:flex; gap:8px; flex-shrink:0; }
+  .kpch-status-badge{
+    display:inline-block;
+    padding:3px 10px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:700;
+  }
+  .kpch-status-badge.pending{ background:rgba(180,144,63,0.2); color:var(--brass); }
+  .kpch-status-badge.done{ background:rgba(31,110,92,0.15); color:#1F6E5C; }
   .btn.small{ width:auto; padding:7px 14px; font-size:12.5px; }
   .btn.danger{ background:#A3372A; }
   .btn.danger:hover{ background:#8A2E22; }
@@ -466,6 +475,15 @@
       </div>
     </div>
 
+    <div class="admin-content-wrap" id="kpchRequestsWrap">
+      <h2>🕐 คำขอแลกชั่วโมง กพช.</h2>
+      <p class="admin-content-desc">รายการคำขอแลกแต้มเป็นชั่วโมง กพช. ที่นักอ่านส่งเข้ามา (ระบบตัดแต้มให้อัตโนมัติแล้ว) กดปุ่ม "ดำเนินการแล้ว" หลังจากบันทึกชั่วโมงให้นักศึกษาในระบบจริงเรียบร้อยแล้ว เพื่อกันการทำซ้ำ</p>
+      <div class="admin-toolbar">
+        <button class="btn secondary" id="kpchRefreshBtn" type="button">🔄 รีเฟรชรายการ</button>
+      </div>
+      <div id="kpchRequestsListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
+    </div>
+
     <div class="admin-content-wrap" id="rewardsManagerWrap">
       <h2>🎁 จัดการรางวัลในแคตตาล็อก</h2>
       <p class="admin-content-desc">เพิ่ม แก้ไข หรือลบรางวัลที่แสดงในหน้าแลกแต้มของนักอ่าน ไม่ต้องแก้โค้ดเลย รูปภาพยังต้องอัปโหลดขึ้น GitHub ในโฟลเดอร์เดียวกับ index.html เองก่อน แล้วพิมพ์แค่ชื่อไฟล์ลงในฟอร์มด้านล่าง</p>
@@ -670,6 +688,7 @@ auth.onAuthStateChanged(async (user)=>{
     loadAdminDashboard();
     loadRewardsManager();
     loadBooksManager();
+    loadKpchRequests();
   }catch(err){
     console.warn("auth state check error:", err);
     const errorEl = document.getElementById('loginError');
@@ -1547,6 +1566,73 @@ function wireBookFormEvents(){
 }
 
 document.getElementById('addBookBtn').addEventListener('click', ()=> openBookForm(null));
+
+/* ===================================================================
+   คำขอแลกชั่วโมง กพช.
+   นักอ่านกรอกฟอร์มเองจาก index.html แล้วระบบตัดแต้มให้ทันที คำขอจะถูก
+   บันทึกไว้ที่ collection "kpchRequests" ให้แอดมินมาดูตรงนี้ เพื่อไปบันทึก
+   ชั่วโมงกพช.ให้นักศึกษาในระบบจริงต่อ แล้วกดปุ่ม "ดำเนินการแล้ว" เพื่อ
+   เปลี่ยนสถานะกันการทำงานซ้ำ (ไม่ได้คืนแต้มหรือลบคำขอออก แค่เปลี่ยนสถานะ)
+=================================================================== */
+let kpchRequestsCache = [];
+
+async function loadKpchRequests(){
+  const wrap = document.getElementById('kpchRequestsListWrap');
+  wrap.innerHTML = `<p class="admin-empty">กำลังโหลด...</p>`;
+  try{
+    const snap = await db.collection('kpchRequests').orderBy('createdAt', 'desc').limit(200).get();
+    kpchRequestsCache = snap.docs.map(d => ({ key: d.id, ...d.data() }));
+    renderKpchRequestsList();
+  }catch(err){
+    console.warn("loadKpchRequests error:", err);
+    wrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore (ต้องเพิ่ม Security Rules ให้ collection kpchRequests)</p>`;
+  }
+}
+
+function renderKpchRequestsList(){
+  const wrap = document.getElementById('kpchRequestsListWrap');
+  if(kpchRequestsCache.length === 0){
+    wrap.innerHTML = `<p class="admin-empty">ยังไม่มีคำขอแลกชั่วโมง กพช.</p>`;
+    return;
+  }
+  wrap.innerHTML = kpchRequestsCache.map(r=>{
+    const dateStr = (r.createdAt && r.createdAt.toDate) ? r.createdAt.toDate().toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' }) : "-";
+    const isDone = r.status === "done";
+    return `
+      <div class="admin-item-row">
+        <div class="admin-item-info">
+          <strong>${escapeHtmlAttr(r.studentName)} · รหัส ${escapeHtmlAttr(r.studentId)}</strong>
+          <span>${escapeHtmlAttr(r.center)} · ${r.hours} ชั่วโมง (${r.pointsUsed} แต้ม) · ${dateStr}</span>
+          <span><span class="kpch-status-badge ${isDone ? 'done' : 'pending'}">${isDone ? '✅ ดำเนินการแล้ว' : '🕓 รอดำเนินการ'}</span></span>
+        </div>
+        <div class="admin-item-actions">
+          ${isDone ? "" : `<button class="btn small" type="button" data-done-kpch="${r.key}">ดำเนินการแล้ว</button>`}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.querySelectorAll('[data-done-kpch]').forEach(btn=>{
+    btn.addEventListener('click', ()=> markKpchRequestDone(btn.dataset.doneKpch));
+  });
+}
+
+async function markKpchRequestDone(key){
+  try{
+    await db.collection('kpchRequests').doc(key).update({
+      status: "done",
+      processedBy: currentUserName,
+      processedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast("บันทึกสถานะเรียบร้อยแล้ว");
+    loadKpchRequests();
+  }catch(err){
+    console.warn("markKpchRequestDone error:", err);
+    showToast("บันทึกสถานะไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore");
+  }
+}
+
+document.getElementById('kpchRefreshBtn').addEventListener('click', loadKpchRequests);
 </script>
 </body>
 </html>
