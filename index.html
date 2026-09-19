@@ -96,6 +96,39 @@
   .greeting{ font-size:13px; color:rgba(244,236,216,0.65); }
   .greeting .logout-link{ color:var(--brass-bright); text-decoration:underline; cursor:pointer; margin-left:8px; }
 
+  /* ---------- Admin: page navigation tabs ---------- */
+  .admin-nav-tabs{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:8px;
+    margin-top:20px;
+    padding-top:20px;
+    border-top:1px solid rgba(255,255,255,0.14);
+  }
+  .admin-nav-tab{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:9px 16px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,0.3);
+    background:rgba(255,255,255,0.06);
+    color:var(--cream);
+    font-family:'Sarabun', sans-serif;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background 0.15s ease, transform 0.1s ease;
+  }
+  .admin-nav-tab:hover{ background:rgba(255,255,255,0.16); }
+  .admin-nav-tab:active{ transform:scale(0.97); }
+  .admin-nav-tab.active{
+    background:var(--brass-bright);
+    border-color:var(--brass-bright);
+    color:var(--wood-dark);
+  }
+
   .page{ max-width:900px; margin:0 auto; padding:36px 24px 60px; }
 
   .admin-qr-wrap{
@@ -411,9 +444,17 @@
     <h1>แผงควบคุมแอดมิน</h1>
     <p class="sub">ออก QR Code แลกรางวัล และดูรายงานสรุปแต้มของนักอ่านทั้งหมด</p>
     <div class="greeting" id="greetingText"></div>
+    <div class="admin-nav-tabs" id="adminNavTabs">
+      <button type="button" class="admin-nav-tab" data-admin-page="qr">🎁 ออก QR Code</button>
+      <button type="button" class="admin-nav-tab" data-admin-page="readers">👥 รายชื่อนักอ่าน</button>
+      <button type="button" class="admin-nav-tab" data-admin-page="redemptions">📜 ประวัติการแลกแต้ม</button>
+      <button type="button" class="admin-nav-tab" data-admin-page="kpch">🕐 คำขอแลกชั่วโมง กพช.</button>
+      <button type="button" class="admin-nav-tab" data-admin-page="catalog">🛍️ จัดการแคตตาล็อก</button>
+      <button type="button" class="admin-nav-tab" data-admin-page="books">📚 จัดการหนังสือ</button>
+    </div>
   </header>
 
-  <div class="page">
+  <div class="page admin-page-section" id="adminPageQr">
     <div class="admin-qr-wrap">
       <h2>กดจำนวนแต้ม แล้วสร้าง QR Code</h2>
       <p class="admin-qr-desc">กดตัวเลข หรือกดปุ่มลัด 100 / 200 / 300 เพื่อกำหนดจำนวนแต้มที่นักอ่านจะใช้แลกรางวัลชิ้นนี้ แล้วกด "สร้าง QR Code" เพื่อแสดงให้นักอ่านสแกน — QR Code แต่ละใบใช้แลกได้เพียงครั้งเดียวเท่านั้น และจะขึ้นสถานะ "ถูกใช้แล้ว" ที่นี่ทันทีที่มีคนสแกนสำเร็จ</p>
@@ -450,10 +491,12 @@
         </div>
       </div>
     </div>
+  </div>
 
+  <div class="page admin-page-section" id="adminPageReaders" style="display:none;">
     <div class="admin-report-wrap">
-      <h2>📊 รายงานสรุปแต้มนักอ่าน</h2>
-      <p class="admin-report-desc">สรุปว่านักอ่านมีใครบ้าง ได้แต้มสะสมเท่าไร แลกรางวัลไปแล้วเท่าไร เรียงจากแต้มคงเหลือมากไปน้อย สามารถโหลดเป็นไฟล์ Excel เก็บไว้ได้</p>
+      <h2>👥 รายชื่อนักอ่านทั้งหมด</h2>
+      <p class="admin-report-desc">สรุปว่านักอ่านมีใครบ้าง ได้แต้มสะสมเท่าไร แลกรางวัลไปแล้วเท่าไร เรียงจากแต้มที่ได้รับสะสมมากไปน้อย สามารถโหลดเป็นไฟล์ Excel เก็บไว้ได้</p>
 
       <div class="admin-summary" id="adminSummary"></div>
 
@@ -463,18 +506,28 @@
       </div>
 
       <div class="admin-table-wrap">
-        <h3>รายชื่อนักอ่านทั้งหมด (เรียงจากแต้มคงเหลือมากไปน้อย)</h3>
+        <h3>รายชื่อนักอ่านทั้งหมด (เรียงจากแต้มที่ได้รับสะสมมากไปน้อย)</h3>
         <table class="admin-table" id="adminUsersTable">
           <tr><td class="admin-empty">กำลังโหลดข้อมูล...</td></tr>
         </table>
       </div>
+    </div>
+  </div>
 
+  <div class="page admin-page-section" id="adminPageRedemptions" style="display:none;">
+    <div class="admin-report-wrap">
+      <h2>📜 ประวัติการแลกแต้มทั้งหมด</h2>
+      <p class="admin-report-desc">ทุกครั้งที่นักอ่านคนไหนแลกแต้มเป็นรางวัลหรือชั่วโมง กพช. จะขึ้นบันทึกไว้ที่นี่ เรียงจากล่าสุดก่อน</p>
+      <div class="admin-toolbar">
+        <button class="btn secondary" id="adminRedemptionsRefreshBtn" type="button">🔄 รีเฟรชข้อมูล</button>
+      </div>
       <div class="admin-table-wrap">
-        <h3>ประวัติการแลกรางวัลทั้งหมด</h3>
         <table class="admin-table" id="adminRedemptionsTable"></table>
       </div>
     </div>
+  </div>
 
+  <div class="page admin-page-section" id="adminPageKpch" style="display:none;">
     <div class="admin-content-wrap" id="kpchRequestsWrap">
       <h2>🕐 คำขอแลกชั่วโมง กพช.</h2>
       <p class="admin-content-desc">รายการคำขอแลกแต้มเป็นชั่วโมง กพช. ที่นักอ่านส่งเข้ามา (ระบบตัดแต้มให้อัตโนมัติแล้ว) กดปุ่ม "ดำเนินการแล้ว" หลังจากบันทึกชั่วโมงให้นักศึกษาในระบบจริงเรียบร้อยแล้ว เพื่อกันการทำซ้ำ</p>
@@ -483,7 +536,9 @@
       </div>
       <div id="kpchRequestsListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
     </div>
+  </div>
 
+  <div class="page admin-page-section" id="adminPageCatalog" style="display:none;">
     <div class="admin-content-wrap" id="rewardsManagerWrap">
       <h2>🎁 จัดการรางวัลในแคตตาล็อก</h2>
       <p class="admin-content-desc">เพิ่ม แก้ไข หรือลบรางวัลที่แสดงในหน้าแลกแต้มของนักอ่าน ไม่ต้องแก้โค้ดเลย รูปภาพยังต้องอัปโหลดขึ้น GitHub ในโฟลเดอร์เดียวกับ index.html เองก่อน แล้วพิมพ์แค่ชื่อไฟล์ลงในฟอร์มด้านล่าง</p>
@@ -491,7 +546,9 @@
       <button class="btn" id="addRewardBtn" type="button">+ เพิ่มรางวัลใหม่</button>
       <div id="rewardFormWrap" style="display:none; margin-top:18px;"></div>
     </div>
+  </div>
 
+  <div class="page admin-page-section" id="adminPageBooks" style="display:none;">
     <div class="admin-content-wrap" id="booksManagerWrap">
       <h2>📚 จัดการหนังสือ/เรื่องราวในห้องสมุด</h2>
       <p class="admin-content-desc">เพิ่ม แก้ไข หรือลบหนังสือ รวมถึงหนังสือแบบรายตอนพร้อมคำถามท้ายเรื่อง ไม่ต้องแก้โค้ดเลย</p>
@@ -685,6 +742,7 @@ auth.onAuthStateChanged(async (user)=>{
     document.getElementById('adminApp').style.display = "block";
     document.getElementById('greetingText').innerHTML =
       `เข้าสู่ระบบในฐานะผู้ดูแลระบบ <strong>${currentUserName}</strong> <span class="logout-link" onclick="logoutUser()">ออกจากระบบ</span>`;
+    showAdminPage('qr');
     loadAdminDashboard();
     loadRewardsManager();
     loadBooksManager();
@@ -879,7 +937,7 @@ async function loadAdminDashboard(){
       userRedemptions.forEach(r=> redemptions.push({ userName, ...r }));
     }
 
-    users.sort((a, b)=> b.currentPoints - a.currentPoints);
+    users.sort((a, b)=> b.totalEarnedPoints - a.totalEarnedPoints);
     redemptions.sort((a, b)=> (b.timestamp || 0) - (a.timestamp || 0));
 
     adminUsersData = users;
@@ -968,6 +1026,7 @@ function renderAdminRedemptionsTable(redemptions){
 }
 
 document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminDashboard);
+document.getElementById('adminRedemptionsRefreshBtn').addEventListener('click', loadAdminDashboard);
 
 document.getElementById('adminExportBtn').addEventListener('click', ()=>{
   if(typeof XLSX === "undefined"){
@@ -1020,6 +1079,36 @@ const categoriesForAdmin = [
   { key:"agri", title:"🌱 เกษตร & สิ่งแวดล้อม" },
   { key:"travel", title:"🗺️ ท่องเที่ยว & วัฒนธรรม" }
 ];
+
+/* ===================================================================
+   ADMIN PAGE NAVIGATION
+   แยกแอดมินออกเป็นหลายหน้าย่อย (แท็บ) แทนที่จะยัดทุกอย่างไว้ในหน้าเดียวยาว ๆ
+   รองรับการเติบโตในอนาคตได้ดีกว่า - กดแท็บไหนก็โชว์แค่ส่วนนั้น ส่วนอื่นซ่อนไว้
+   (แต่ข้อมูลข้างในยังโหลดปกติ ไม่ได้รอให้เปิดแท็บก่อนถึงจะโหลด)
+=================================================================== */
+const ADMIN_PAGE_KEYS = ["qr", "readers", "redemptions", "kpch", "catalog", "books"];
+const ADMIN_PAGE_ID = {
+  qr: "adminPageQr",
+  readers: "adminPageReaders",
+  redemptions: "adminPageRedemptions",
+  kpch: "adminPageKpch",
+  catalog: "adminPageCatalog",
+  books: "adminPageBooks"
+};
+
+function showAdminPage(pageKey){
+  ADMIN_PAGE_KEYS.forEach(key=>{
+    document.getElementById(ADMIN_PAGE_ID[key]).style.display = (key === pageKey) ? "block" : "none";
+  });
+  document.querySelectorAll('.admin-nav-tab').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.adminPage === pageKey);
+  });
+  window.scrollTo({ top:0, behavior:"smooth" });
+}
+
+document.querySelectorAll('.admin-nav-tab').forEach(btn=>{
+  btn.addEventListener('click', ()=> showAdminPage(btn.dataset.adminPage));
+});
 
 /* ---------------- Rewards manager ---------------- */
 let rewardsListCache = [];
