@@ -519,6 +519,7 @@
       <h2>📜 ประวัติการแลกแต้มทั้งหมด</h2>
       <p class="admin-report-desc">ทุกครั้งที่นักอ่านคนไหนแลกแต้มเป็นรางวัลหรือชั่วโมง กพช. จะขึ้นบันทึกไว้ที่นี่ เรียงจากล่าสุดก่อน</p>
       <div class="admin-toolbar">
+        <button class="btn" id="adminRedemptionsExportBtn" type="button">📥 ดาวน์โหลดเป็น Excel</button>
         <button class="btn secondary" id="adminRedemptionsRefreshBtn" type="button">🔄 รีเฟรชข้อมูล</button>
       </div>
       <div class="admin-table-wrap">
@@ -532,6 +533,7 @@
       <h2>🕐 คำขอแลกชั่วโมง กพช.</h2>
       <p class="admin-content-desc">รายการคำขอแลกแต้มเป็นชั่วโมง กพช. ที่นักอ่านส่งเข้ามา (ระบบตัดแต้มให้อัตโนมัติแล้ว) กดปุ่ม "ดำเนินการแล้ว" หลังจากบันทึกชั่วโมงให้นักศึกษาในระบบจริงเรียบร้อยแล้ว เพื่อกันการทำซ้ำ</p>
       <div class="admin-toolbar">
+        <button class="btn" id="kpchExportBtn" type="button">📥 ดาวน์โหลดเป็น Excel</button>
         <button class="btn secondary" id="kpchRefreshBtn" type="button">🔄 รีเฟรชรายการ</button>
       </div>
       <div id="kpchRequestsListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
@@ -1027,6 +1029,24 @@ function renderAdminRedemptionsTable(redemptions){
 
 document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminDashboard);
 document.getElementById('adminRedemptionsRefreshBtn').addEventListener('click', loadAdminDashboard);
+
+document.getElementById('adminRedemptionsExportBtn').addEventListener('click', ()=>{
+  if(typeof XLSX === "undefined"){
+    showToast("โหลดไลบรารี Excel ไม่สำเร็จ กรุณาลองใหม่");
+    return;
+  }
+  const redSheetData = adminRedemptionsData.map(r=>({
+    "ชื่อนักอ่าน": r.userName,
+    "รางวัลที่แลก": r.rewardTitle,
+    "แต้มที่ใช้": r.cost,
+    "วันเวลา": r.timestamp ? r.timestamp.toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' }) : "-"
+  }));
+  const wb = XLSX.utils.book_new();
+  const wsRed = XLSX.utils.json_to_sheet(redSheetData);
+  XLSX.utils.book_append_sheet(wb, wsRed, "ประวัติการแลกแต้ม");
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `ประวัติการแลกแต้ม_${dateStr}.xlsx`);
+});
 
 document.getElementById('adminExportBtn').addEventListener('click', ()=>{
   if(typeof XLSX === "undefined"){
@@ -1722,6 +1742,28 @@ async function markKpchRequestDone(key){
 }
 
 document.getElementById('kpchRefreshBtn').addEventListener('click', loadKpchRequests);
+
+document.getElementById('kpchExportBtn').addEventListener('click', ()=>{
+  if(typeof XLSX === "undefined"){
+    showToast("โหลดไลบรารี Excel ไม่สำเร็จ กรุณาลองใหม่");
+    return;
+  }
+  const kpchSheetData = kpchRequestsCache.map(r=>({
+    "ชื่อ-สกุล": r.studentName,
+    "รหัสนักศึกษา": r.studentId,
+    "ศูนย์ / ครูประจำกลุ่ม": r.center,
+    "จำนวนชั่วโมง": r.hours,
+    "แต้มที่ใช้": r.pointsUsed,
+    "สถานะ": r.status === "done" ? "ดำเนินการแล้ว" : "รอดำเนินการ",
+    "วันเวลาที่ส่งคำขอ": (r.createdAt && r.createdAt.toDate) ? r.createdAt.toDate().toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' }) : "-",
+    "ผู้ดำเนินการ": r.processedBy || "-"
+  }));
+  const wb = XLSX.utils.book_new();
+  const wsKpch = XLSX.utils.json_to_sheet(kpchSheetData);
+  XLSX.utils.book_append_sheet(wb, wsKpch, "คำขอแลกชั่วโมง กพช.");
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `คำขอแลกชั่วโมงกพช_${dateStr}.xlsx`);
+});
 </script>
 </body>
 </html>
