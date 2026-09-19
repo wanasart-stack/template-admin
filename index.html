@@ -449,6 +449,7 @@
       <button type="button" class="admin-nav-tab" data-admin-page="readers">👥 รายชื่อนักอ่าน</button>
       <button type="button" class="admin-nav-tab" data-admin-page="redemptions">📜 ประวัติการแลกแต้ม</button>
       <button type="button" class="admin-nav-tab" data-admin-page="kpch">🕐 คำขอแลกชั่วโมง กพช.</button>
+      <button type="button" class="admin-nav-tab" data-admin-page="shipping">📦 คำสั่งจัดส่งสินค้าอุปโภค</button>
       <button type="button" class="admin-nav-tab" data-admin-page="catalog">🛍️ จัดการแคตตาล็อก</button>
       <button type="button" class="admin-nav-tab" data-admin-page="books">📚 จัดการหนังสือ</button>
     </div>
@@ -537,6 +538,18 @@
         <button class="btn secondary" id="kpchRefreshBtn" type="button">🔄 รีเฟรชรายการ</button>
       </div>
       <div id="kpchRequestsListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
+    </div>
+  </div>
+
+  <div class="page admin-page-section" id="adminPageShipping" style="display:none;">
+    <div class="admin-content-wrap" id="shippingOrdersWrap">
+      <h2>📦 คำสั่งจัดส่งสินค้าอุปโภค</h2>
+      <p class="admin-content-desc">รายการคำสั่งแลกสินค้าอุปโภคที่นักอ่านกรอกที่อยู่จัดส่งเข้ามา (ระบบตัดแต้มให้อัตโนมัติแล้ว) กดปุ่ม "จัดส่งแล้ว" หลังจากส่งสินค้าจริงเรียบร้อยแล้ว เพื่อกันการทำซ้ำ</p>
+      <div class="admin-toolbar">
+        <button class="btn" id="shippingExportBtn" type="button">📥 ดาวน์โหลดเป็น Excel</button>
+        <button class="btn secondary" id="shippingRefreshBtn" type="button">🔄 รีเฟรชรายการ</button>
+      </div>
+      <div id="shippingOrdersListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
     </div>
   </div>
 
@@ -749,6 +762,7 @@ auth.onAuthStateChanged(async (user)=>{
     loadRewardsManager();
     loadBooksManager();
     loadKpchRequests();
+    loadShippingOrders();
   }catch(err){
     console.warn("auth state check error:", err);
     const errorEl = document.getElementById('loginError');
@@ -1106,12 +1120,13 @@ const categoriesForAdmin = [
    รองรับการเติบโตในอนาคตได้ดีกว่า - กดแท็บไหนก็โชว์แค่ส่วนนั้น ส่วนอื่นซ่อนไว้
    (แต่ข้อมูลข้างในยังโหลดปกติ ไม่ได้รอให้เปิดแท็บก่อนถึงจะโหลด)
 =================================================================== */
-const ADMIN_PAGE_KEYS = ["qr", "readers", "redemptions", "kpch", "catalog", "books"];
+const ADMIN_PAGE_KEYS = ["qr", "readers", "redemptions", "kpch", "shipping", "catalog", "books"];
 const ADMIN_PAGE_ID = {
   qr: "adminPageQr",
   readers: "adminPageReaders",
   redemptions: "adminPageRedemptions",
   kpch: "adminPageKpch",
+  shipping: "adminPageShipping",
   catalog: "adminPageCatalog",
   books: "adminPageBooks"
 };
@@ -1156,8 +1171,8 @@ function renderRewardsList(){
   wrap.innerHTML = rewardsListCache.map(r => `
     <div class="admin-item-row">
       <div class="admin-item-info">
-        <strong>${escapeHtmlAttr(r.title)}</strong>
-        <span>${typeof r.cost === "number" ? r.cost + " แต้ม" : escapeHtmlAttr(r.cost)} · รูป: ${escapeHtmlAttr(r.img) || "ไม่มี"}</span>
+        <strong>${r.rewardType === "durable" ? "📦" : "🍬"} ${escapeHtmlAttr(r.title)}</strong>
+        <span>${typeof r.cost === "number" ? r.cost + " แต้ม" : escapeHtmlAttr(r.cost)} · ${r.rewardType === "durable" ? "สินค้าอุปโภค (จัดส่ง)" : "สินค้าบริโภค (สแกน QR)"} · รูป: ${escapeHtmlAttr(r.img) || "ไม่มี"}</span>
       </div>
       <div class="admin-item-actions">
         <button class="btn secondary small" type="button" data-edit-reward="${r.key}">แก้ไข</button>
@@ -1178,11 +1193,19 @@ function openRewardForm(key){
   const existing = key ? rewardsListCache.find(r => r.key === key) : null;
   const formWrap = document.getElementById('rewardFormWrap');
   formWrap.style.display = "block";
+  const rewardType = existing ? (existing.rewardType || "consumable") : "consumable";
   formWrap.innerHTML = `
     <h3>${existing ? "แก้ไขรางวัล" : "เพิ่มรางวัลใหม่"}</h3>
     <div class="admin-field">
       <label>ชื่อรางวัล</label>
       <input type="text" id="rfTitle" value="${escapeHtmlAttr(existing ? existing.title : "")}">
+    </div>
+    <div class="admin-field">
+      <label>ประเภทรางวัล (กำหนดวิธีแลกที่นักอ่านจะเห็น)</label>
+      <div class="admin-mode-toggle">
+        <label><input type="radio" name="rfType" value="consumable" ${rewardType === "consumable" ? "checked" : ""}> 🍬 สินค้าบริโภค (สแกน QR รับที่ศูนย์)</label>
+        <label><input type="radio" name="rfType" value="durable" ${rewardType === "durable" ? "checked" : ""}> 📦 สินค้าอุปโภค (กรอกที่อยู่ จัดส่งไปรษณีย์)</label>
+      </div>
     </div>
     <div class="admin-field-row">
       <div class="admin-field">
@@ -1219,6 +1242,8 @@ function openRewardForm(key){
     const color = document.getElementById('rfColor').value.trim() || "#B4791F";
     const img = document.getElementById('rfImg').value.trim();
     const order = parseInt(document.getElementById('rfOrder').value, 10) || 0;
+    const rfTypeEl = formWrap.querySelector('input[name="rfType"]:checked');
+    const rewardType = rfTypeEl ? rfTypeEl.value : "consumable";
 
     if(!title){ showToast("กรุณากรอกชื่อรางวัล"); return; }
     if(cost === ""){
@@ -1234,7 +1259,7 @@ function openRewardForm(key){
     btn.textContent = "กำลังบันทึก...";
 
     try{
-      await db.collection('rewardsCatalog').doc(key).set({ title, cost, color, img, order });
+      await db.collection('rewardsCatalog').doc(key).set({ title, cost, color, img, rewardType, order });
       showToast("บันทึกรางวัลสำเร็จ");
       formWrap.style.display = "none";
       formWrap.innerHTML = "";
@@ -1763,6 +1788,95 @@ document.getElementById('kpchExportBtn').addEventListener('click', ()=>{
   XLSX.utils.book_append_sheet(wb, wsKpch, "คำขอแลกชั่วโมง กพช.");
   const dateStr = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `คำขอแลกชั่วโมงกพช_${dateStr}.xlsx`);
+});
+
+/* ===================================================================
+   คำสั่งจัดส่งสินค้าอุปโภค
+   นักอ่านกรอกที่อยู่เองจาก index.html แล้วระบบตัดแต้มให้ทันที คำสั่งซื้อจะถูก
+   บันทึกไว้ที่ collection "shippingOrders" ให้แอดมินมาดูตรงนี้ เพื่อไปแพ็ค/
+   จัดส่งสินค้าจริงต่อ แล้วกดปุ่ม "จัดส่งแล้ว" เพื่อเปลี่ยนสถานะกันการทำงานซ้ำ
+=================================================================== */
+let shippingOrdersCache = [];
+
+async function loadShippingOrders(){
+  const wrap = document.getElementById('shippingOrdersListWrap');
+  wrap.innerHTML = `<p class="admin-empty">กำลังโหลด...</p>`;
+  try{
+    const snap = await db.collection('shippingOrders').orderBy('createdAt', 'desc').limit(200).get();
+    shippingOrdersCache = snap.docs.map(d => ({ key: d.id, ...d.data() }));
+    renderShippingOrdersList();
+  }catch(err){
+    console.warn("loadShippingOrders error:", err);
+    wrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore (ต้องเพิ่ม Security Rules ให้ collection shippingOrders)</p>`;
+  }
+}
+
+function renderShippingOrdersList(){
+  const wrap = document.getElementById('shippingOrdersListWrap');
+  if(shippingOrdersCache.length === 0){
+    wrap.innerHTML = `<p class="admin-empty">ยังไม่มีคำสั่งจัดส่งสินค้าอุปโภค</p>`;
+    return;
+  }
+  wrap.innerHTML = shippingOrdersCache.map(o=>{
+    const dateStr = (o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate().toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' }) : "-";
+    const isDone = o.status === "done";
+    return `
+      <div class="admin-item-row">
+        <div class="admin-item-info">
+          <strong>${escapeHtmlAttr(o.recipientName)} · ${escapeHtmlAttr(o.rewardTitle)}</strong>
+          <span>📍 ${escapeHtmlAttr(o.address)} · ☎️ ${escapeHtmlAttr(o.phone)}</span>
+          <span>${typeof o.cost === "number" ? o.cost + " แต้ม" : "-"} · ${dateStr}</span>
+          <span><span class="kpch-status-badge ${isDone ? 'done' : 'pending'}">${isDone ? '✅ จัดส่งแล้ว' : '🕓 รอจัดส่ง'}</span></span>
+        </div>
+        <div class="admin-item-actions">
+          ${isDone ? "" : `<button class="btn small" type="button" data-done-shipping="${o.key}">จัดส่งแล้ว</button>`}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.querySelectorAll('[data-done-shipping]').forEach(btn=>{
+    btn.addEventListener('click', ()=> markShippingOrderDone(btn.dataset.doneShipping));
+  });
+}
+
+async function markShippingOrderDone(key){
+  try{
+    await db.collection('shippingOrders').doc(key).update({
+      status: "done",
+      processedBy: currentUserName,
+      processedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast("บันทึกสถานะเรียบร้อยแล้ว");
+    loadShippingOrders();
+  }catch(err){
+    console.warn("markShippingOrderDone error:", err);
+    showToast("บันทึกสถานะไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore");
+  }
+}
+
+document.getElementById('shippingRefreshBtn').addEventListener('click', loadShippingOrders);
+
+document.getElementById('shippingExportBtn').addEventListener('click', ()=>{
+  if(typeof XLSX === "undefined"){
+    showToast("โหลดไลบรารี Excel ไม่สำเร็จ กรุณาลองใหม่");
+    return;
+  }
+  const shipSheetData = shippingOrdersCache.map(o=>({
+    "ชื่อ-สกุลผู้รับ": o.recipientName,
+    "รางวัลที่แลก": o.rewardTitle,
+    "ที่อยู่จัดส่ง": o.address,
+    "เบอร์โทรศัพท์": o.phone,
+    "แต้มที่ใช้": o.cost,
+    "สถานะ": o.status === "done" ? "จัดส่งแล้ว" : "รอจัดส่ง",
+    "วันเวลาที่สั่ง": (o.createdAt && o.createdAt.toDate) ? o.createdAt.toDate().toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' }) : "-",
+    "ผู้ดำเนินการ": o.processedBy || "-"
+  }));
+  const wb = XLSX.utils.book_new();
+  const wsShip = XLSX.utils.json_to_sheet(shipSheetData);
+  XLSX.utils.book_append_sheet(wb, wsShip, "คำสั่งจัดส่งสินค้าอุปโภค");
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `คำสั่งจัดส่งสินค้าอุปโภค_${dateStr}.xlsx`);
 });
 </script>
 </body>
