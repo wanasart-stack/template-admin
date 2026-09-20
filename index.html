@@ -139,6 +139,58 @@
   }
   .admin-qr-wrap h2{ font-size:18px; margin:0 0 8px; color:var(--wood-dark); }
   .admin-qr-desc{ font-size:12.5px; color:var(--ink-soft); margin:0 0 22px; line-height:1.7; }
+
+  .admin-qr-product-picker{
+    background:rgba(255,255,255,0.4);
+    border:1px dashed rgba(42,29,18,0.25);
+    border-radius:8px;
+    padding:16px 18px;
+    margin-bottom:24px;
+  }
+  .admin-qr-product-picker-label{ font-size:12.5px; font-weight:600; color:var(--ink-soft); margin:0 0 12px; }
+  .admin-qr-product-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .admin-qr-product-btn{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 12px 8px 8px;
+    border-radius:8px;
+    border:1px solid rgba(42,29,18,0.25);
+    background:rgba(255,255,255,0.7);
+    cursor:pointer;
+    font-family:'Sarabun', sans-serif;
+    text-align:left;
+  }
+  .admin-qr-product-btn:hover{ background:#fff; }
+  .admin-qr-product-btn.selected{
+    border-color:var(--wood-dark);
+    background:rgba(180,144,63,0.16);
+    box-shadow:0 0 0 2px rgba(30,51,39,0.15);
+  }
+  .admin-qr-product-btn img{
+    width:36px; height:36px; border-radius:6px; object-fit:cover; flex-shrink:0;
+  }
+  .admin-qr-product-btn .no-img{
+    width:36px; height:36px; border-radius:6px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(42,29,18,0.1); font-size:16px;
+  }
+  .admin-qr-product-btn .info{ display:flex; flex-direction:column; }
+  .admin-qr-product-btn .info .t{ font-size:12.5px; font-weight:700; color:var(--ink); }
+  .admin-qr-product-btn .info .c{ font-size:11.5px; color:var(--brass); font-weight:600; }
+  .admin-qr-selected-product{
+    background:var(--wood-dark);
+    color:var(--cream);
+    font-size:12.5px;
+    font-weight:600;
+    padding:6px 14px;
+    border-radius:999px;
+  }
+
   .admin-qr-body{ display:flex; gap:30px; flex-wrap:wrap; justify-content:center; }
   .admin-qr-left{ flex:1 1 260px; display:flex; flex-direction:column; align-items:center; gap:14px; }
   .admin-qr-display{
@@ -459,8 +511,15 @@
     <div class="admin-qr-wrap">
       <h2>กดจำนวนแต้ม แล้วสร้าง QR Code</h2>
       <p class="admin-qr-desc">กดตัวเลข หรือกดปุ่มลัด 100 / 200 / 300 เพื่อกำหนดจำนวนแต้มที่นักอ่านจะใช้แลกรางวัลชิ้นนี้ แล้วกด "สร้าง QR Code" เพื่อแสดงให้นักอ่านสแกน — QR Code แต่ละใบใช้แลกได้เพียงครั้งเดียวเท่านั้น และจะขึ้นสถานะ "ถูกใช้แล้ว" ที่นี่ทันทีที่มีคนสแกนสำเร็จ</p>
+
+      <div class="admin-qr-product-picker">
+        <p class="admin-qr-product-picker-label">🍬 หรือกดเลือกจากแคตตาล็อกสินค้าบริโภคโดยตรง (ตั้งจำนวนแต้มให้อัตโนมัติ และบันทึกชื่อสินค้าไว้ในประวัติการแลกด้วย):</p>
+        <div class="admin-qr-product-list" id="adminQrProductList"><p class="admin-empty">กำลังโหลด...</p></div>
+      </div>
+
       <div class="admin-qr-body">
         <div class="admin-qr-left">
+          <div class="admin-qr-selected-product" id="adminQrSelectedProduct" style="display:none;"></div>
           <div class="admin-qr-display" id="adminQrPointsDisplay">0</div>
           <div class="admin-qr-presets">
             <button type="button" class="qr-preset-btn" data-points="100">100 แต้ม</button>
@@ -783,14 +842,78 @@ auth.onAuthStateChanged(async (user)=>{
 =================================================================== */
 let adminQrPoints = "";
 let adminQrUnsub = null;
+/* ถ้าแอดมินกดเลือกสินค้าจากแคตตาล็อกโดยตรง (แทนการกดตัวเลขเอง) จะเก็บไว้ตรงนี้
+   เพื่อผูกชื่อสินค้าเข้ากับ QR Code ที่จะสร้าง ทำให้ประวัติการแลกแต้มรู้ว่า
+   แลกอะไรไป ไม่ใช่แค่ตัวเลขแต้มเฉย ๆ เหมือนเดิม - ถ้าแก้ตัวเลขแต้มเองทีหลัง
+   (พิมพ์คีย์แพดหรือกดปุ่มลัด) จะล้างค่านี้ทิ้งทันที เพราะตัวเลขจะไม่ตรงกับ
+   ราคาสินค้าที่เคยเลือกไว้อีกต่อไป */
+let adminQrSelectedReward = null;
 
 function renderAdminQrPointsDisplay(){
   document.getElementById('adminQrPointsDisplay').textContent = adminQrPoints || "0";
 }
 
+function renderQrSelectedProductBadge(){
+  const el = document.getElementById('adminQrSelectedProduct');
+  if(adminQrSelectedReward){
+    el.style.display = "inline-block";
+    el.textContent = `🍬 ${adminQrSelectedReward.title}`;
+  } else {
+    el.style.display = "none";
+  }
+}
+
+function clearAdminQrSelectedReward(){
+  if(!adminQrSelectedReward) return;
+  adminQrSelectedReward = null;
+  renderQrSelectedProductBadge();
+  renderQrProductPicker();
+}
+
+/* แสดงแคตตาล็อก "สินค้าบริโภค" (ประเภท consumable) เป็นปุ่มให้กดเลือกตรง ๆ
+   สินค้าอุปโภคไม่โชว์ที่นี่เพราะแลกด้วยวิธีกรอกที่อยู่จัดส่งแทน ไม่ใช่ QR Code */
+function renderQrProductPicker(){
+  const wrap = document.getElementById('adminQrProductList');
+  if(!wrap) return;
+  const products = rewardsListCache.filter(r => r.rewardType !== "durable");
+  if(products.length === 0){
+    wrap.innerHTML = `<p class="admin-empty">ยังไม่มีสินค้าบริโภคในแคตตาล็อก (เพิ่มได้ที่แท็บ "จัดการแคตตาล็อก")</p>`;
+    return;
+  }
+  wrap.innerHTML = products.map(r=>{
+    const imgHtml = r.img ? `<img src="${r.img}" alt="">` : `<div class="no-img">🍬</div>`;
+    const costLabel = typeof r.cost === "number" ? r.cost.toLocaleString('th-TH') + " แต้ม" : String(r.cost);
+    const isSelected = adminQrSelectedReward && adminQrSelectedReward.key === r.key;
+    return `
+      <button type="button" class="admin-qr-product-btn${isSelected ? ' selected' : ''}" data-reward-key="${r.key}">
+        ${imgHtml}
+        <span class="info"><span class="t">${escapeHtmlAttr(r.title)}</span><span class="c">${costLabel}</span></span>
+      </button>
+    `;
+  }).join('');
+
+  wrap.querySelectorAll('.admin-qr-product-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const r = products.find(x => x.key === btn.dataset.rewardKey);
+      if(!r) return;
+      const cost = typeof r.cost === "number" ? r.cost : parseInt(String(r.cost).replace(/,/g, ''), 10);
+      if(isNaN(cost) || cost <= 0){
+        showToast(`"${r.title}" ยังไม่ได้กำหนดจำนวนแต้มเป็นตัวเลข ไปแก้ไขที่แท็บ "จัดการแคตตาล็อก" ก่อน`);
+        return;
+      }
+      adminQrSelectedReward = { key: r.key, title: r.title };
+      adminQrPoints = String(cost);
+      renderAdminQrPointsDisplay();
+      renderQrSelectedProductBadge();
+      renderQrProductPicker();
+    });
+  });
+}
+
 document.getElementById('adminQrKeypad').addEventListener('click', (e)=>{
   const btn = e.target.closest('button');
   if(!btn) return;
+  clearAdminQrSelectedReward();
   if(btn.dataset.digit !== undefined){
     if(adminQrPoints.length >= 5) return;
     adminQrPoints = (adminQrPoints === "0" ? "" : adminQrPoints) + btn.dataset.digit;
@@ -804,6 +927,7 @@ document.getElementById('adminQrKeypad').addEventListener('click', (e)=>{
 
 document.querySelectorAll('.qr-preset-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
+    clearAdminQrSelectedReward();
     adminQrPoints = btn.dataset.points;
     renderAdminQrPointsDisplay();
   });
@@ -828,7 +952,8 @@ function watchRedeemCode(code){
     if(!doc.exists) return;
     const d = doc.data();
     if(d.used){
-      statusEl.textContent = `✅ ถูกใช้แลกรางวัลแล้ว โดย ${d.usedByName || "-"}`;
+      const productPart = d.rewardTitle ? ` ("${d.rewardTitle}")` : "";
+      statusEl.textContent = `✅ ถูกใช้แลกรางวัลแล้ว โดย ${d.usedByName || "-"}${productPart}`;
       statusEl.className = "qr-status used";
     } else {
       statusEl.textContent = "🕓 รอนักอ่านสแกน...";
@@ -852,7 +977,7 @@ document.getElementById('adminGenerateQrBtn').addEventListener('click', async ()
 
   try{
     const code = generateRedeemCodeString();
-    await db.collection('redeemCodes').doc(code).set({
+    const codeDoc = {
       points,
       used:false,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -860,7 +985,12 @@ document.getElementById('adminGenerateQrBtn').addEventListener('click', async ()
       usedBy:null,
       usedByName:null,
       usedAt:null
-    });
+    };
+    if(adminQrSelectedReward){
+      codeDoc.rewardKey = adminQrSelectedReward.key;
+      codeDoc.rewardTitle = adminQrSelectedReward.title;
+    }
+    await db.collection('redeemCodes').doc(code).set(codeDoc);
 
     const box = document.getElementById('adminQrCodeBox');
     box.innerHTML = "";
@@ -879,10 +1009,15 @@ document.getElementById('adminGenerateQrBtn').addEventListener('click', async ()
     document.getElementById('adminQrCodeHint').textContent = `รหัส: ${code}`;
 
     watchRedeemCode(code);
-    showToast(`สร้าง QR Code สำหรับ ${points} แต้มแล้ว`);
+    showToast(adminQrSelectedReward
+      ? `สร้าง QR Code สำหรับ "${adminQrSelectedReward.title}" (${points} แต้ม) แล้ว`
+      : `สร้าง QR Code สำหรับ ${points} แต้มแล้ว`);
 
     adminQrPoints = "";
+    adminQrSelectedReward = null;
     renderAdminQrPointsDisplay();
+    renderQrSelectedProductBadge();
+    renderQrProductPicker();
   }catch(err){
     console.warn("generate QR error:", err);
     showToast("สร้าง QR Code ไม่สำเร็จ กรุณาตรวจสอบสิทธิ์ Firestore แล้วลองใหม่");
@@ -1156,6 +1291,7 @@ async function loadRewardsManager(){
     rewardsListCache = snap.docs.map(d => ({ key: d.id, ...d.data() }));
     renderRewardsList();
     checkSeedNote();
+    renderQrProductPicker();
   }catch(err){
     console.warn("loadRewardsManager error:", err);
     wrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore</p>`;
