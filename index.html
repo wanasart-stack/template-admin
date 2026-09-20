@@ -1209,7 +1209,7 @@ function openRewardForm(key){
     </div>
     <div class="admin-field-row">
       <div class="admin-field">
-        <label>จำนวนแต้ม (พิมพ์ - ถ้ายังไม่กำหนดตัวเลข)</label>
+        <label>จำนวนแต้ม (พิมพ์ตัวเลขล้วน ๆ เช่น 15000 หรือพิมพ์ - ถ้ายังไม่กำหนดตัวเลข)</label>
         <input type="text" id="rfCost" value="${escapeHtmlAttr(existing ? existing.cost : "")}">
       </div>
       <div class="admin-field">
@@ -1249,8 +1249,12 @@ function openRewardForm(key){
     if(cost === ""){
       cost = "-";
     } else {
-      const n = parseInt(cost, 10);
-      if(!isNaN(n) && String(n) === cost) cost = n;
+      /* ตัดลูกน้ำคั่นหลักพันออกก่อนแปลงเป็นตัวเลขเสมอ กันไม่ให้พิมพ์ "15,000"
+         แบบมีลูกน้ำแล้วเก็บเป็นข้อความเพี้ยน ๆ ที่ทำให้ตอนนักอ่านแลกรางวัลนี้
+         ระบบเช็คแต้มพอ/ไม่พอข้ามไปเงียบ ๆ (เจอปัญหานี้มาแล้วจริง) */
+      const cleaned = cost.replace(/,/g, '').trim();
+      const n = parseInt(cleaned, 10);
+      if(!isNaN(n) && String(n) === cleaned) cost = n;
     }
 
     const key = existing ? existing.key : ("reward_" + Date.now().toString(36));
