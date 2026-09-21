@@ -1493,11 +1493,14 @@ function renderBooksList(){
   }
   wrap.innerHTML = listToShow.map(b=>{
     const cat = categoriesForAdmin.find(c => c.key === b.categoryKey);
+    const pointsLabel = b.chapters
+      ? `${b.chapters.length} ตอน · ${b.chapters.map(ch => (ch.points || 10)).join('/')} แต้มต่อตอน`
+      : `เรื่องเดียวจบ · ${b.points || 10} แต้ม`;
     return `
       <div class="admin-item-row">
         <div class="admin-item-info">
           <strong>${b.featured ? "🌟 " : ""}${escapeHtmlAttr(b.title)}</strong>
-          <span>${cat ? cat.title : (b.categoryKey || "-")} · ${b.chapters ? b.chapters.length + " ตอน" : "เรื่องเดียวจบ"}${b.coverImg ? " · มีรูปปก" : ""}${b.blurb ? " · " + escapeHtmlAttr(b.blurb) : ""}</span>
+          <span>${cat ? cat.title : (b.categoryKey || "-")} · ${pointsLabel}${b.coverImg ? " · มีรูปปก" : ""}${b.blurb ? " · " + escapeHtmlAttr(b.blurb) : ""}</span>
         </div>
         <div class="admin-item-actions">
           <button class="btn secondary small" type="button" data-edit-book="${b.key}">แก้ไข</button>
@@ -1541,8 +1544,9 @@ function openBookForm(key){
       order: (existing.order != null) ? existing.order : booksListCache.length,
       mode: existing.chapters ? "chapters" : "single",
       passage: existing.passage || "",
+      points: (typeof existing.points === "number" && existing.points > 0) ? existing.points : 10,
       questions: existing.questions && existing.questions.length ? JSON.parse(JSON.stringify(existing.questions)) : [blankQuestion()],
-      chapters: existing.chapters && existing.chapters.length ? JSON.parse(JSON.stringify(existing.chapters)) : [{ title:"", image:"", passage:"", questions:[blankQuestion()] }]
+      chapters: existing.chapters && existing.chapters.length ? JSON.parse(JSON.stringify(existing.chapters)).map(ch => ({ ...ch, points: (typeof ch.points === "number" && ch.points > 0) ? ch.points : 10 })) : [{ title:"", image:"", passage:"", points:10, questions:[blankQuestion()] }]
     };
   } else {
     bookDraft = {
@@ -1556,8 +1560,9 @@ function openBookForm(key){
       order: booksListCache.length,
       mode: "single",
       passage: "",
+      points: 10,
       questions: [blankQuestion()],
-      chapters: [{ title:"", image:"", passage:"", questions:[blankQuestion()] }]
+      chapters: [{ title:"", image:"", passage:"", points:10, questions:[blankQuestion()] }]
     };
   }
   document.getElementById('bookFormWrap').style.display = "block";
@@ -1590,9 +1595,15 @@ function renderChaptersListHtml(chapters){
         <strong>ตอนที่ ${i + 1}</strong>
         <button type="button" class="admin-remove-btn" data-action="removeChapter" data-chidx="${i}">ลบตอนนี้</button>
       </div>
-      <div class="admin-field">
-        <label>ชื่อตอน</label>
-        <input type="text" data-action="chapterTitle" data-ctx="ch${i}" value="${escapeHtmlAttr(ch.title)}">
+      <div class="admin-field-row">
+        <div class="admin-field" style="flex:2;">
+          <label>ชื่อตอน</label>
+          <input type="text" data-action="chapterTitle" data-ctx="ch${i}" value="${escapeHtmlAttr(ch.title)}">
+        </div>
+        <div class="admin-field">
+          <label>แต้มที่ได้รับ (ตอนนี้)</label>
+          <input type="number" min="1" data-action="chapterPoints" data-ctx="ch${i}" value="${ch.points}">
+        </div>
       </div>
       <div class="admin-field">
         <label>ชื่อไฟล์ภาพประกอบตอนนี้ (อัปโหลดขึ้น GitHub โฟลเดอร์เดียวกับ index.html ก่อน แล้วพิมพ์ชื่อไฟล์ตรงนี้ เว้นว่างได้ถ้าไม่มีภาพ)</label>
@@ -1632,6 +1643,10 @@ function renderBookForm(){
         <label>เนื้อเรื่อง</label>
         <textarea id="bfPassage" rows="7">${escapeHtmlAttr(d.passage)}</textarea>
       </div>
+      <div class="admin-field" style="max-width:200px;">
+        <label>แต้มที่ได้รับเมื่อทำแบบทดสอบผ่าน</label>
+        <input type="number" min="1" id="bfPoints" value="${d.points}">
+      </div>
       <div class="admin-questions-block">
         <label>คำถามท้ายเรื่อง</label>
         <div id="bfQuestionsList">${renderQuestionsListHtml(d.questions, "root")}</div>
@@ -1640,6 +1655,7 @@ function renderBookForm(){
     `;
   } else {
     bodyHtml = `
+      <p class="admin-content-desc" style="margin-bottom:14px;">💡 หนังสือแบบรายตอน กำหนดแต้มแยกได้เองทีละตอน (ดูช่อง "แต้มที่ได้รับ" ในแต่ละตอนด้านล่าง) เหมาะกับตอนที่เนื้อหายาว-สั้นไม่เท่ากัน</p>
       <div id="bfChaptersList">${renderChaptersListHtml(d.chapters)}</div>
       <button class="btn secondary small" type="button" data-action="addChapter">+ เพิ่มตอนใหม่</button>
     `;
@@ -1714,6 +1730,9 @@ function wireBookFormEvents(){
   const passageEl = document.getElementById('bfPassage');
   if(passageEl) passageEl.addEventListener('input', e=> bookDraft.passage = e.target.value);
 
+  const pointsEl = document.getElementById('bfPoints');
+  if(pointsEl) pointsEl.addEventListener('input', e=> bookDraft.points = parseInt(e.target.value, 10) || 10);
+
   const modeBody = document.getElementById('bfModeBody');
 
   modeBody.addEventListener('input', e=>{
@@ -1730,6 +1749,8 @@ function wireBookFormEvents(){
       bookDraft.chapters[parseInt(ctx.slice(2), 10)].title = el.value;
     } else if(action === "chapterImage"){
       bookDraft.chapters[parseInt(ctx.slice(2), 10)].image = el.value;
+    } else if(action === "chapterPoints"){
+      bookDraft.chapters[parseInt(ctx.slice(2), 10)].points = parseInt(el.value, 10) || 10;
     } else if(action === "chapterPassage"){
       bookDraft.chapters[parseInt(ctx.slice(2), 10)].passage = el.value;
     }
@@ -1756,7 +1777,7 @@ function wireBookFormEvents(){
       arr.splice(parseInt(btn.dataset.qidx, 10), 1);
       renderBookForm();
     } else if(action === "addChapter"){
-      bookDraft.chapters.push({ title:"", image:"", passage:"", questions:[blankQuestion()] });
+      bookDraft.chapters.push({ title:"", image:"", passage:"", points:10, questions:[blankQuestion()] });
       renderBookForm();
     } else if(action === "removeChapter"){
       if(bookDraft.chapters.length <= 1){ showToast("ต้องมีอย่างน้อย 1 ตอน"); return; }
@@ -1802,6 +1823,7 @@ function wireBookFormEvents(){
       if(cleanQuestions.length === 0){ showToast("กรุณากรอกอย่างน้อย 1 คำถาม"); return; }
       payload.passage = d.passage.trim();
       payload.questions = cleanQuestions;
+      payload.points = (typeof d.points === "number" && d.points > 0) ? d.points : 10;
       payload.chapters = firebase.firestore.FieldValue.delete();
     } else {
       const cleanChapters = d.chapters
@@ -1810,12 +1832,14 @@ function wireBookFormEvents(){
           title: ch.title.trim(),
           image: (ch.image || "").trim(),
           passage: ch.passage.trim(),
+          points: (typeof ch.points === "number" && ch.points > 0) ? ch.points : 10,
           questions: ch.questions.filter(q=>q.q.trim()).map(q=>({ q:q.q.trim(), options:q.options.map(o=>o.trim()), correct:q.correct }))
         }));
       if(cleanChapters.length === 0){ showToast("กรุณากรอกอย่างน้อย 1 ตอน"); return; }
       payload.chapters = cleanChapters;
       payload.passage = firebase.firestore.FieldValue.delete();
       payload.questions = firebase.firestore.FieldValue.delete();
+      payload.points = firebase.firestore.FieldValue.delete();
     }
 
     const key = d.key || ("book_" + Date.now().toString(36));
