@@ -318,6 +318,39 @@
   .admin-field-row .admin-field{ flex:1 1 140px; }
 
   .admin-mode-toggle{ display:flex; gap:20px; margin-bottom:16px; font-size:13.5px; }
+
+  .passage-toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    padding:8px;
+    background:rgba(255,255,255,0.5);
+    border:1px solid rgba(42,29,18,0.2);
+    border-radius:6px 6px 0 0;
+    border-bottom:none;
+  }
+  .passage-toolbar-btn{
+    padding:6px 11px;
+    border-radius:4px;
+    border:1px solid rgba(42,29,18,0.25);
+    background:#fff;
+    font-family:'Sarabun', sans-serif;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .passage-toolbar-btn:hover{ background:rgba(180,144,63,0.15); }
+  .passage-toolbar-color{
+    width:32px;
+    height:30px;
+    padding:2px;
+    border:1px solid rgba(42,29,18,0.25);
+    border-radius:4px;
+    cursor:pointer;
+    background:#fff;
+  }
   .admin-color-input{
     -webkit-appearance:none;
     appearance:none;
@@ -1238,6 +1271,65 @@ function escapeHtmlAttr(s){
 }
 function blankQuestion(){ return { q:"", options:["","","",""], correct:0 }; }
 
+/* แทรก/ครอบข้อความในช่อง "เนื้อเรื่อง" ด้วยแท็กจัดรูปแบบง่าย ๆ ตามปุ่มที่กด
+   ถ้าเลือกข้อความไว้ก่อนจะครอบข้อความนั้น ถ้าไม่ได้เลือกไว้จะแทรกคำ/บรรทัด
+   ตัวอย่างให้แทน - หน้า index.html จะแปลแท็กพวกนี้เป็น HTML ให้เองตอนแสดงผล */
+function applyPassageFormat(textareaEl, fmt, colorHex){
+  const start = textareaEl.selectionStart;
+  const end = textareaEl.selectionEnd;
+  const value = textareaEl.value;
+  const selected = value.slice(start, end);
+  let insertText;
+
+  if(fmt === "h1" || fmt === "h2" || fmt === "h3"){
+    const content = selected || "พิมพ์หัวข้อตรงนี้";
+    const needsLeadingBreak = start > 0 && value[start - 1] !== "\n";
+    const needsTrailingBreak = end < value.length && value[end] !== "\n";
+    insertText = `${needsLeadingBreak ? "\n" : ""}[${fmt}]${content}[/${fmt}]${needsTrailingBreak ? "\n" : ""}`;
+  } else if(fmt === "color"){
+    const content = selected || "ข้อความ";
+    insertText = `[color=${colorHex}]${content}[/color]`;
+  } else if(fmt === "img"){
+    const filename = prompt('พิมพ์ชื่อไฟล์รูปภาพที่จะแทรก (ต้องอัปโหลดขึ้น GitHub โฟลเดอร์เดียวกับ index.html ไว้ก่อนแล้ว) เช่น doisuthep.jpg');
+    if(!filename || !filename.trim()) return;
+    const needsLeadingBreak = start > 0 && value[start - 1] !== "\n";
+    const needsTrailingBreak = end < value.length && value[end] !== "\n";
+    insertText = `${needsLeadingBreak ? "\n" : ""}[img]${filename.trim()}[/img]${needsTrailingBreak ? "\n" : ""}`;
+  } else {
+    return;
+  }
+
+  textareaEl.value = value.slice(0, start) + insertText + value.slice(end);
+  textareaEl.focus();
+  const newCursorPos = start + insertText.length;
+  textareaEl.setSelectionRange(newCursorPos, newCursorPos);
+  textareaEl.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/* ctx "root" ใช้ id "bfPassage" เดิมที่โค้ดส่วนอื่นพึ่งพาอยู่แล้ว ส่วน ctx
+   ของแต่ละตอน ("ch0","ch1",...) ใช้ id "passageTextarea_ch{i}" ที่ตั้งขึ้นใหม่ */
+function getPassageTextareaByCtx(ctx){
+  if(ctx === "root") return document.getElementById('bfPassage');
+  return document.getElementById('passageTextarea_' + ctx);
+}
+
+/* HTML แถบปุ่มจัดรูปแบบ วางไว้เหนือช่องเนื้อเรื่องแต่ละช่อง (ctx ใช้ระบบเดียว
+   กับที่ใช้แยกคำถาม/ตอนอยู่แล้ว: "root" สำหรับเรื่องเดียวจบ, "ch0","ch1",...
+   สำหรับแต่ละตอนของหนังสือแบบรายตอน) */
+function renderPassageToolbarHtml(ctx){
+  return `
+    <div class="passage-toolbar" data-ctx="${ctx}">
+      <button type="button" class="passage-toolbar-btn" data-fmt="h1" title="หัวข้อใหญ่">H1 ใหญ่</button>
+      <button type="button" class="passage-toolbar-btn" data-fmt="h2" title="หัวข้อกลาง">H2 กลาง</button>
+      <button type="button" class="passage-toolbar-btn" data-fmt="h3" title="หัวข้อเล็ก">H3 เล็ก</button>
+      <input type="color" class="passage-toolbar-color" value="#B4791F" title="เลือกสีข้อความ">
+      <button type="button" class="passage-toolbar-btn" data-fmt="color" title="ใส่สีให้ข้อความที่เลือกไว้">🎨 ใส่สี</button>
+      <button type="button" class="passage-toolbar-btn" data-fmt="img" title="แทรกรูปภาพตรงตำแหน่งเคอร์เซอร์">🖼️ แทรกรูป</button>
+    </div>
+    <p class="admin-content-desc" style="margin:6px 0 10px;">เลือกข้อความในช่องด้านล่างก่อน แล้วกดปุ่ม H1/H2/H3/ใส่สี เพื่อครอบข้อความนั้น หรือกด "แทรกรูป" เพื่อใส่รูปภาพตรงตำแหน่งเคอร์เซอร์ (ต้องอัปโหลดรูปขึ้น GitHub ไว้ก่อนแล้วพิมพ์แค่ชื่อไฟล์)</p>
+  `;
+}
+
 const categoriesForAdmin = [
   { key:"royal", title:"👑 หนังสือพระราชนิพนธ์" },
   { key:"novel", title:"📖 นวนิยาย & เรื่องแต่ง" },
@@ -1612,7 +1704,8 @@ function renderChaptersListHtml(chapters){
       </div>
       <div class="admin-field">
         <label>เนื้อเรื่องตอนนี้</label>
-        <textarea rows="5" data-action="chapterPassage" data-ctx="ch${i}">${escapeHtmlAttr(ch.passage)}</textarea>
+        ${renderPassageToolbarHtml("ch" + i)}
+        <textarea rows="8" id="passageTextarea_ch${i}" data-action="chapterPassage" data-ctx="ch${i}">${escapeHtmlAttr(ch.passage)}</textarea>
       </div>
       <div class="admin-questions-block">
         <label>คำถามท้ายตอน</label>
@@ -1642,6 +1735,7 @@ function renderBookForm(){
     bodyHtml = `
       <div class="admin-field">
         <label>เนื้อเรื่อง</label>
+        ${renderPassageToolbarHtml("root")}
         <textarea id="bfPassage" rows="7">${escapeHtmlAttr(d.passage)}</textarea>
       </div>
       <div class="admin-field" style="max-width:200px;">
@@ -1765,6 +1859,17 @@ function wireBookFormEvents(){
   });
 
   modeBody.addEventListener('click', e=>{
+    const fmtBtn = e.target.closest('[data-fmt]');
+    if(fmtBtn){
+      const toolbar = fmtBtn.closest('.passage-toolbar');
+      const ctx = toolbar.dataset.ctx;
+      const textareaEl = getPassageTextareaByCtx(ctx);
+      if(!textareaEl) return;
+      const colorInput = toolbar.querySelector('.passage-toolbar-color');
+      applyPassageFormat(textareaEl, fmtBtn.dataset.fmt, colorInput ? colorInput.value : "#B4791F");
+      return;
+    }
+
     const btn = e.target.closest('[data-action]');
     if(!btn) return;
     const action = btn.dataset.action;
