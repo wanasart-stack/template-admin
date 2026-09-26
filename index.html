@@ -351,6 +351,47 @@
     cursor:pointer;
     background:#fff;
   }
+  .passage-toolbar-size{
+    width:60px;
+    height:30px;
+    padding:0 6px;
+    border:1px solid rgba(42,29,18,0.25);
+    border-radius:4px;
+    font-family:'Sarabun', sans-serif;
+    font-size:12.5px;
+    text-align:center;
+  }
+  .passage-toolbar-sep{
+    width:1px;
+    height:22px;
+    background:rgba(42,29,18,0.2);
+    margin:0 2px;
+  }
+  .passage-preview{
+    background:rgba(255,255,255,0.55);
+    border:1px dashed rgba(42,29,18,0.3);
+    border-radius:6px;
+    padding:14px 16px;
+    font-size:14px;
+    line-height:1.8;
+    color:var(--ink);
+  }
+  .passage-preview p{ margin:0 0 12px; }
+  .passage-preview p:last-child{ margin-bottom:0; }
+  .passage-preview .passage-h1{ font-weight:700; font-size:19px; color:var(--wood-dark); margin:14px 0 8px; }
+  .passage-preview .passage-h1:first-child{ margin-top:0; }
+  .passage-preview .passage-h2{ font-weight:700; font-size:16.5px; color:var(--wood-dark); margin:12px 0 6px; }
+  .passage-preview .passage-h2:first-child{ margin-top:0; }
+  .passage-preview .passage-h3{ font-weight:700; font-size:14.5px; color:var(--brass); margin:10px 0 5px; }
+  .passage-preview .passage-h3:first-child{ margin-top:0; }
+  .passage-preview .passage-inline-img{
+    display:block;
+    max-width:100%;
+    max-height:220px;
+    object-fit:cover;
+    border-radius:6px;
+    margin:10px 0;
+  }
   .admin-color-input{
     -webkit-appearance:none;
     appearance:none;
@@ -1274,7 +1315,7 @@ function blankQuestion(){ return { q:"", options:["","","",""], correct:0 }; }
 /* แทรก/ครอบข้อความในช่อง "เนื้อเรื่อง" ด้วยแท็กจัดรูปแบบง่าย ๆ ตามปุ่มที่กด
    ถ้าเลือกข้อความไว้ก่อนจะครอบข้อความนั้น ถ้าไม่ได้เลือกไว้จะแทรกคำ/บรรทัด
    ตัวอย่างให้แทน - หน้า index.html จะแปลแท็กพวกนี้เป็น HTML ให้เองตอนแสดงผล */
-function applyPassageFormat(textareaEl, fmt, colorHex){
+function applyPassageFormat(textareaEl, fmt, colorHex, sizeVal){
   const start = textareaEl.selectionStart;
   const end = textareaEl.selectionEnd;
   const value = textareaEl.value;
@@ -1289,6 +1330,11 @@ function applyPassageFormat(textareaEl, fmt, colorHex){
   } else if(fmt === "color"){
     const content = selected || "ข้อความ";
     insertText = `[color=${colorHex}]${content}[/color]`;
+  } else if(fmt === "size"){
+    const px = parseInt(sizeVal, 10);
+    if(!px || px < 8 || px > 120){ showToast("กรุณาพิมพ์ขนาดตัวอักษรเป็นตัวเลข 8-120"); return; }
+    const content = selected || "ข้อความ";
+    insertText = `[size=${px}]${content}[/size]`;
   } else if(fmt === "img"){
     const filename = prompt('พิมพ์ชื่อไฟล์รูปภาพที่จะแทรก (ต้องอัปโหลดขึ้น GitHub โฟลเดอร์เดียวกับ index.html ไว้ก่อนแล้ว) เช่น doisuthep.jpg');
     if(!filename || !filename.trim()) return;
@@ -1319,15 +1365,82 @@ function getPassageTextareaByCtx(ctx){
 function renderPassageToolbarHtml(ctx){
   return `
     <div class="passage-toolbar" data-ctx="${ctx}">
-      <button type="button" class="passage-toolbar-btn" data-fmt="h1" title="หัวข้อใหญ่">H1 ใหญ่</button>
-      <button type="button" class="passage-toolbar-btn" data-fmt="h2" title="หัวข้อกลาง">H2 กลาง</button>
-      <button type="button" class="passage-toolbar-btn" data-fmt="h3" title="หัวข้อเล็ก">H3 เล็ก</button>
+      <button type="button" class="passage-toolbar-btn" data-fmt="h1" title="หัวข้อใหญ่ (บรรทัดของตัวเอง)">H1 ใหญ่</button>
+      <button type="button" class="passage-toolbar-btn" data-fmt="h2" title="หัวข้อกลาง (บรรทัดของตัวเอง)">H2 กลาง</button>
+      <button type="button" class="passage-toolbar-btn" data-fmt="h3" title="หัวข้อเล็ก (บรรทัดของตัวเอง)">H3 เล็ก</button>
+      <span class="passage-toolbar-sep"></span>
+      <input type="number" class="passage-toolbar-size" value="20" min="8" max="120" title="ขนาดตัวอักษร (พิกเซล)">
+      <button type="button" class="passage-toolbar-btn" data-fmt="size" title="ปรับขนาดตัวอักษรที่เลือกไว้ตามตัวเลขด้านซ้าย">🔤 ปรับขนาด</button>
+      <span class="passage-toolbar-sep"></span>
       <input type="color" class="passage-toolbar-color" value="#B4791F" title="เลือกสีข้อความ">
       <button type="button" class="passage-toolbar-btn" data-fmt="color" title="ใส่สีให้ข้อความที่เลือกไว้">🎨 ใส่สี</button>
+      <span class="passage-toolbar-sep"></span>
       <button type="button" class="passage-toolbar-btn" data-fmt="img" title="แทรกรูปภาพตรงตำแหน่งเคอร์เซอร์">🖼️ แทรกรูป</button>
     </div>
-    <p class="admin-content-desc" style="margin:6px 0 10px;">เลือกข้อความในช่องด้านล่างก่อน แล้วกดปุ่ม H1/H2/H3/ใส่สี เพื่อครอบข้อความนั้น หรือกด "แทรกรูป" เพื่อใส่รูปภาพตรงตำแหน่งเคอร์เซอร์ (ต้องอัปโหลดรูปขึ้น GitHub ไว้ก่อนแล้วพิมพ์แค่ชื่อไฟล์)</p>
+    <p class="admin-content-desc" style="margin:6px 0 10px;">เลือกข้อความในช่องด้านล่างก่อน แล้วกดปุ่ม H1/H2/H3 (ขนาดสำเร็จรูป) หรือพิมพ์ตัวเลขแล้วกด "ปรับขนาด" (กำหนดเองเป็นพิกเซล) หรือกด "ใส่สี" เพื่อครอบข้อความนั้น หรือกด "แทรกรูป" เพื่อใส่รูปภาพตรงตำแหน่งเคอร์เซอร์ (ต้องอัปโหลดรูปขึ้น GitHub ไว้ก่อนแล้วพิมพ์แค่ชื่อไฟล์) — ดูตัวอย่างหน้าตาจริงได้ใต้ช่องเนื้อเรื่อง</p>
   `;
+}
+
+/* กล่องตัวอย่าง (live preview) วางไว้ใต้ช่องเนื้อเรื่องแต่ละช่อง แสดงหน้าตา
+   จริงที่นักอ่านจะเห็นหลังแปลงแท็ก [h1] [color] [size] [img] แล้ว อัปเดตสด
+   ทุกครั้งที่แก้ข้อความหรือกดปุ่มในแถบเครื่องมือ */
+function renderPassagePreviewHtml(ctx){
+  return `
+    <p class="admin-content-desc" style="margin:12px 0 4px; font-weight:700;">👁️ ตัวอย่างที่นักอ่านจะเห็นจริง:</p>
+    <div class="passage-preview" id="passagePreview_${ctx}"></div>
+  `;
+}
+
+/* ตัวแปลงแท็กเป็น HTML ชุดเดียวกับที่ใช้ในไฟล์ index.html (ทำสำเนามาไว้ที่นี่
+   เพื่อให้แอดมินเห็นตัวอย่างหน้าตาจริงได้ทันทีโดยไม่ต้องเปิดไฟล์อื่น) */
+function escapePassageHtmlAdmin(s){
+  return String(s == null ? "" : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function processPassageInlineAdmin(rawLine){
+  let escaped = escapePassageHtmlAdmin(rawLine);
+  escaped = escaped.replace(/\[color=(#[0-9A-Fa-f]{6})\]([\s\S]*?)\[\/color\]/g, '<span style="color:$1">$2</span>');
+  escaped = escaped.replace(/\[size=(\d{1,3})\]([\s\S]*?)\[\/size\]/g, '<span style="font-size:$1px">$2</span>');
+  return escaped;
+}
+function parsePassageMarkupAdmin(text){
+  const lines = String(text || "").split('\n');
+  const htmlParts = [];
+  let paragraphBuffer = [];
+  function flushParagraph(){
+    if(paragraphBuffer.length > 0){
+      htmlParts.push(`<p>${paragraphBuffer.join('<br>')}</p>`);
+      paragraphBuffer = [];
+    }
+  }
+  lines.forEach(rawLine=>{
+    const line = rawLine.trim();
+    if(line === ""){ flushParagraph(); return; }
+    let m;
+    if((m = line.match(/^\[h1\](.*)\[\/h1\]$/))){
+      flushParagraph();
+      htmlParts.push(`<div class="passage-h1">${processPassageInlineAdmin(m[1])}</div>`);
+    } else if((m = line.match(/^\[h2\](.*)\[\/h2\]$/))){
+      flushParagraph();
+      htmlParts.push(`<div class="passage-h2">${processPassageInlineAdmin(m[1])}</div>`);
+    } else if((m = line.match(/^\[h3\](.*)\[\/h3\]$/))){
+      flushParagraph();
+      htmlParts.push(`<div class="passage-h3">${processPassageInlineAdmin(m[1])}</div>`);
+    } else if((m = line.match(/^\[img\](.*)\[\/img\]$/))){
+      flushParagraph();
+      const filename = m[1].trim();
+      htmlParts.push(`<img src="${escapePassageHtmlAdmin(filename)}" class="passage-inline-img" alt="" onerror="this.style.display='none';">`);
+    } else {
+      paragraphBuffer.push(processPassageInlineAdmin(line));
+    }
+  });
+  flushParagraph();
+  return htmlParts.join('');
+}
+function updatePassagePreview(ctx){
+  const textareaEl = getPassageTextareaByCtx(ctx);
+  const previewEl = document.getElementById('passagePreview_' + ctx);
+  if(!textareaEl || !previewEl) return;
+  previewEl.innerHTML = parsePassageMarkupAdmin(textareaEl.value) || `<span class="admin-empty" style="padding:0;">(ยังไม่มีเนื้อหา)</span>`;
 }
 
 const categoriesForAdmin = [
@@ -1706,6 +1819,7 @@ function renderChaptersListHtml(chapters){
         <label>เนื้อเรื่องตอนนี้</label>
         ${renderPassageToolbarHtml("ch" + i)}
         <textarea rows="8" id="passageTextarea_ch${i}" data-action="chapterPassage" data-ctx="ch${i}">${escapeHtmlAttr(ch.passage)}</textarea>
+        ${renderPassagePreviewHtml("ch" + i)}
       </div>
       <div class="admin-questions-block">
         <label>คำถามท้ายตอน</label>
@@ -1737,6 +1851,7 @@ function renderBookForm(){
         <label>เนื้อเรื่อง</label>
         ${renderPassageToolbarHtml("root")}
         <textarea id="bfPassage" rows="7">${escapeHtmlAttr(d.passage)}</textarea>
+        ${renderPassagePreviewHtml("root")}
       </div>
       <div class="admin-field" style="max-width:200px;">
         <label>แต้มที่ได้รับเมื่อทำแบบทดสอบผ่าน</label>
@@ -1823,7 +1938,10 @@ function wireBookFormEvents(){
   });
 
   const passageEl = document.getElementById('bfPassage');
-  if(passageEl) passageEl.addEventListener('input', e=> bookDraft.passage = e.target.value);
+  if(passageEl) passageEl.addEventListener('input', e=>{
+    bookDraft.passage = e.target.value;
+    updatePassagePreview("root");
+  });
 
   const pointsEl = document.getElementById('bfPoints');
   if(pointsEl) pointsEl.addEventListener('input', e=> bookDraft.points = parseInt(e.target.value, 10) || 10);
@@ -1848,8 +1966,16 @@ function wireBookFormEvents(){
       bookDraft.chapters[parseInt(ctx.slice(2), 10)].points = parseInt(el.value, 10) || 10;
     } else if(action === "chapterPassage"){
       bookDraft.chapters[parseInt(ctx.slice(2), 10)].passage = el.value;
+      updatePassagePreview(ctx);
     }
   });
+
+  /* แสดงตัวอย่างหน้าตาจริงตั้งแต่เปิดฟอร์มครั้งแรกเลย ไม่ต้องรอแก้ไขก่อน */
+  if(bookDraft.mode === "single"){
+    updatePassagePreview("root");
+  } else {
+    bookDraft.chapters.forEach((ch, i)=> updatePassagePreview("ch" + i));
+  }
 
   modeBody.addEventListener('change', e=>{
     const el = e.target;
@@ -1866,7 +1992,8 @@ function wireBookFormEvents(){
       const textareaEl = getPassageTextareaByCtx(ctx);
       if(!textareaEl) return;
       const colorInput = toolbar.querySelector('.passage-toolbar-color');
-      applyPassageFormat(textareaEl, fmtBtn.dataset.fmt, colorInput ? colorInput.value : "#B4791F");
+      const sizeInput = toolbar.querySelector('.passage-toolbar-size');
+      applyPassageFormat(textareaEl, fmtBtn.dataset.fmt, colorInput ? colorInput.value : "#B4791F", sizeInput ? sizeInput.value : "20");
       return;
     }
 
