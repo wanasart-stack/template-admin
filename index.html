@@ -1453,7 +1453,10 @@ const categoriesForAdmin = [
   { key:"science", title:"🔬 วิทยาศาสตร์ & เทคโนโลยี" },
   { key:"agri", title:"🌱 เกษตร & สิ่งแวดล้อม" },
   { key:"travel", title:"🗺️ การท่องเที่ยว" },
-  { key:"religion", title:"🙏 ศาสนา & วัฒนธรรม" }
+  { key:"religion", title:"🙏 ศาสนา & วัฒนธรรม" },
+  { key:"textbook_primary", title:"ประถมศึกษา", group:"🎓 หนังสือเรียน" },
+  { key:"textbook_lower_sec", title:"มัธยมศึกษาตอนต้น", group:"🎓 หนังสือเรียน" },
+  { key:"textbook_upper_sec", title:"มัธยมศึกษาตอนปลาย", group:"🎓 หนังสือเรียน" }
 ];
 
 /* ===================================================================
@@ -1665,7 +1668,8 @@ function renderBookCategoryFilterBar(){
   const allBtn = `<button type="button" class="admin-cat-filter-btn${activeBookCategoryFilter === null ? ' active' : ''}" data-cat="">ทั้งหมด (${countAll})</button>`;
   const catBtns = categoriesForAdmin.map(cat=>{
     const n = booksListCache.filter(b=> b.categoryKey === cat.key).length;
-    return `<button type="button" class="admin-cat-filter-btn${activeBookCategoryFilter === cat.key ? ' active' : ''}" data-cat="${cat.key}">${cat.title} (${n})</button>`;
+    const label = cat.group ? cat.group + " - " + cat.title : cat.title;
+    return `<button type="button" class="admin-cat-filter-btn${activeBookCategoryFilter === cat.key ? ' active' : ''}" data-cat="${cat.key}">${label} (${n})</button>`;
   }).join('');
   bar.innerHTML = allBtn + catBtns;
 
@@ -1707,7 +1711,7 @@ function renderBooksList(){
       <div class="admin-item-row">
         <div class="admin-item-info">
           <strong>${b.featured ? "🌟 " : ""}${escapeHtmlAttr(b.title)}</strong>
-          <span>${cat ? cat.title : (b.categoryKey || "-")} · ${pointsLabel}${b.coverImg ? " · มีรูปปก" : ""}${b.blurb ? " · " + escapeHtmlAttr(b.blurb) : ""}</span>
+          <span>${cat ? (cat.group ? cat.group + " - " + cat.title : cat.title) : (b.categoryKey || "-")} · ${pointsLabel}${b.coverImg ? " · มีรูปปก" : ""}${b.blurb ? " · " + escapeHtmlAttr(b.blurb) : ""}</span>
         </div>
         <div class="admin-item-actions">
           <button class="btn secondary small" type="button" data-edit-book="${b.key}">แก้ไข</button>
@@ -1841,9 +1845,20 @@ function renderBookForm(){
   const formWrap = document.getElementById('bookFormWrap');
   const d = bookDraft;
 
-  const categoryOptionsHtml = categoriesForAdmin.map(c=>
-    `<option value="${c.key}" ${d.categoryKey === c.key ? "selected" : ""}>${c.title}</option>`
-  ).join('');
+  const categoryOptionsHtml = (()=>{
+    let html = "";
+    let openGroup = null;
+    categoriesForAdmin.forEach(c=>{
+      if(c.group !== openGroup){
+        if(openGroup !== null) html += `</optgroup>`;
+        if(c.group){ html += `<optgroup label="${escapeHtmlAttr(c.group)}">`; }
+        openGroup = c.group || null;
+      }
+      html += `<option value="${c.key}" ${d.categoryKey === c.key ? "selected" : ""}>${c.title}</option>`;
+    });
+    if(openGroup !== null) html += `</optgroup>`;
+    return html;
+  })();
 
   let bodyHtml;
   if(d.mode === "single"){
