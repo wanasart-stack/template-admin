@@ -65,6 +65,24 @@
     color:var(--ink);
   }
   .field input:focus{ outline:none; border-color:var(--brass); background:#fff; }
+  .password-field-wrap{ position:relative; }
+  .password-field-wrap input{ padding-right:42px; }
+  .password-toggle-btn{
+    position:absolute;
+    right:4px;
+    top:50%;
+    transform:translateY(-50%);
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:7px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--ink-soft);
+    border-radius:4px;
+  }
+  .password-toggle-btn:hover{ color:var(--ink); background:rgba(42,29,18,0.06); }
   .login-error{ font-size:12.5px; color:#A3372A; margin:-6px 0 14px; text-align:left; display:none; }
   .btn{
     display:inline-block; width:100%;
@@ -247,6 +265,14 @@
   }
   .admin-content-wrap h2{ font-size:18px; margin:0 0 8px; color:var(--wood-dark); }
   .admin-content-desc{ font-size:12.5px; color:var(--ink-soft); margin:0 0 18px; line-height:1.7; }
+  .admin-subsection{
+    padding:18px 0;
+    border-top:1px solid rgba(42,29,18,0.14);
+    margin-top:6px;
+  }
+  .admin-subsection:first-of-type{ border-top:none; padding-top:0; }
+  .admin-subsection h3{ font-size:15px; margin:0 0 12px; color:var(--wood-dark); }
+  .admin-subsection-note{ font-size:12px; font-weight:400; color:var(--ink-soft); }
   .admin-cat-filter-bar{
     display:flex;
     flex-wrap:wrap;
@@ -552,7 +578,12 @@
       </div>
       <div class="field">
         <label for="loginPass">รหัสผ่าน</label>
-        <input type="password" id="loginPass" placeholder="รหัสผ่าน" autocomplete="current-password">
+        <div class="password-field-wrap">
+          <input type="password" id="loginPass" placeholder="รหัสผ่าน" autocomplete="current-password">
+          <button type="button" class="password-toggle-btn" id="loginPassToggle" aria-label="แสดง/ซ่อนรหัสผ่าน" tabindex="-1">
+            <svg class="eye-icon" id="loginPassToggleIcon" viewBox="0 0 24 24" width="19" height="19"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+          </button>
+        </div>
       </div>
       <p class="login-error" id="loginError">เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน</p>
       <button class="btn" id="loginBtn">เข้าสู่ระบบ</button>
@@ -574,6 +605,7 @@
       <button type="button" class="admin-nav-tab" data-admin-page="qr">🎁 ออก QR Code</button>
       <button type="button" class="admin-nav-tab" data-admin-page="readers">👥 รายชื่อนักอ่าน</button>
       <button type="button" class="admin-nav-tab" data-admin-page="redemptions">📜 ประวัติการแลกแต้ม</button>
+      <button type="button" class="admin-nav-tab" data-admin-page="locks">🔒 นักอ่านที่ถูกล็อก</button>
       <button type="button" class="admin-nav-tab" data-admin-page="kpch">🕐 คำขอแลกชั่วโมง กพช.</button>
       <button type="button" class="admin-nav-tab" data-admin-page="shipping">📦 คำสั่งจัดส่งสินค้าอุปโภค</button>
       <button type="button" class="admin-nav-tab" data-admin-page="catalog">🛍️ จัดการแคตตาล็อก</button>
@@ -662,6 +694,17 @@
     </div>
   </div>
 
+  <div class="page admin-page-section" id="adminPageLocks" style="display:none;">
+    <div class="admin-content-wrap" id="lockedReadersWrap">
+      <h2>🔒 นักอ่านที่ถูกล็อก</h2>
+      <p class="admin-content-desc">รายชื่อนักอ่านที่ตอบผิดครบ 3 ครั้งในเล่ม/ตอนใดเล่ม/ตอนหนึ่ง ระบบล็อกไว้ 15 วันโดยอัตโนมัติ (ปลดล็อกเองเมื่อครบกำหนด) กดปุ่ม "ปลดล็อก" ได้ถ้าต้องการปลดให้ก่อนครบกำหนด</p>
+      <div class="admin-toolbar">
+        <button class="btn secondary" id="lockedReadersRefreshBtn" type="button">🔄 รีเฟรชรายการ</button>
+      </div>
+      <div id="lockedReadersListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
+    </div>
+  </div>
+
   <div class="page admin-page-section" id="adminPageKpch" style="display:none;">
     <div class="admin-content-wrap" id="kpchRequestsWrap">
       <h2>🕐 คำขอแลกชั่วโมง กพช.</h2>
@@ -690,8 +733,19 @@
     <div class="admin-content-wrap" id="rewardsManagerWrap">
       <h2>🎁 จัดการรางวัลในแคตตาล็อก</h2>
       <p class="admin-content-desc">เพิ่ม แก้ไข หรือลบรางวัลที่แสดงในหน้าแลกแต้มของนักอ่าน ไม่ต้องแก้โค้ดเลย รูปภาพยังต้องอัปโหลดขึ้น GitHub ในโฟลเดอร์เดียวกับ index.html เองก่อน แล้วพิมพ์แค่ชื่อไฟล์ลงในฟอร์มด้านล่าง</p>
-      <div id="rewardsListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
-      <button class="btn" id="addRewardBtn" type="button">+ เพิ่มรางวัลใหม่</button>
+
+      <div class="admin-subsection">
+        <h3>🍬 สินค้าบริโภค <span class="admin-subsection-note">(แลกด้วยการสแกน QR Code ที่ศูนย์)</span></h3>
+        <div id="rewardsListWrapConsumable"><p class="admin-empty">กำลังโหลด...</p></div>
+        <button class="btn" id="addRewardBtnConsumable" type="button">+ เพิ่มสินค้าบริโภคใหม่</button>
+      </div>
+
+      <div class="admin-subsection">
+        <h3>📦 สินค้าอุปโภค <span class="admin-subsection-note">(แลกด้วยการกรอกที่อยู่เพื่อจัดส่ง)</span></h3>
+        <div id="rewardsListWrapDurable"><p class="admin-empty">กำลังโหลด...</p></div>
+        <button class="btn" id="addRewardBtnDurable" type="button">+ เพิ่มสินค้าอุปโภคใหม่</button>
+      </div>
+
       <div id="rewardFormWrap" style="display:none; margin-top:18px;"></div>
     </div>
   </div>
@@ -824,6 +878,23 @@ async function doLogin(){
   btn.disabled = false;
   btn.textContent = "เข้าสู่ระบบ";
 }
+
+/* ปุ่มรูปตาข้างช่องรหัสผ่าน กดสลับให้เห็น/ซ่อนตัวอักษรที่พิมพ์ไว้ */
+const EYE_OPEN_SVG = `<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/>`;
+const EYE_OFF_SVG = `<path d="M1 12s4-7 11-7c2 0 3.7.4 5.2 1.1M23 12s-4 7-11 7c-2 0-3.7-.4-5.2-1.1M3 3l18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.9 9.9a3 3 0 004.2 4.2" fill="none" stroke="currentColor" stroke-width="1.8"/>`;
+
+function setupPasswordToggle(inputId, btnId, iconId){
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  const icon = document.getElementById(iconId);
+  if(!input || !btn || !icon) return;
+  btn.addEventListener('click', ()=>{
+    const showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    icon.innerHTML = showing ? EYE_OPEN_SVG : EYE_OFF_SVG;
+  });
+}
+setupPasswordToggle('loginPass', 'loginPassToggle', 'loginPassToggleIcon');
 
 document.getElementById('loginBtn').addEventListener('click', doLogin);
 document.getElementById('loginPass').addEventListener('keydown', (e)=>{ if(e.key === "Enter") doLogin(); });
@@ -1152,11 +1223,13 @@ async function loadAdminDashboard(){
       const userName = d.name || "-";
 
       users.push({
+        uid: docSnap.id,
         name: userName,
         currentPoints,
         totalEarnedPoints,
         totalRedeemedPoints,
-        redeemCount: userRedemptions.length
+        redeemCount: userRedemptions.length,
+        locks: d.locks || {}
       });
 
       userRedemptions.forEach(r=> redemptions.push({ userName, ...r }));
@@ -1171,9 +1244,12 @@ async function loadAdminDashboard(){
     renderAdminSummary(users, redemptions);
     renderAdminUsersTable(users);
     renderAdminRedemptionsTable(redemptions);
+    renderLockedReadersList();
   }catch(err){
     console.warn("loadAdminDashboard error:", err);
     usersTable.innerHTML = `<tr><td class="admin-empty">ไม่สามารถโหลดข้อมูลได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง Firestore (Security Rules) ของบัญชีผู้ดูแลระบบ</td></tr>`;
+    const lockWrap = document.getElementById('lockedReadersListWrap');
+    if(lockWrap) lockWrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ</p>`;
   }
 }
 
@@ -1249,6 +1325,94 @@ function renderAdminRedemptionsTable(redemptions){
     <tbody>${rows}</tbody>
   `;
 }
+
+/* ===================================================================
+   นักอ่านที่ถูกล็อก (ตอบผิดครบ 3 ครั้ง ล็อก 15 วัน)
+   ข้อมูลนี้ไม่มี collection แยกต่างหาก เก็บเป็น field "locks" อยู่ในเอกสาร
+   ของนักอ่านแต่ละคนเอง (users/{uid}.locks = { [bookหรือchapterKey]: เวลา
+   ที่จะปลดล็อกเป็นมิลลิวินาที }) เลยใช้ข้อมูลชุดเดียวกับที่โหลดไปทำรายงาน
+   "รายชื่อนักอ่าน" อยู่แล้ว (adminUsersData) มากรองหาคนที่ล็อกอยู่จริง
+   (เวลาที่จะปลดล็อกยังไม่ถึง) แทนที่จะ query ใหม่ซ้ำซ้อน */
+
+/* แปลง key ที่ถูกล็อก (เป็น key หนังสือเล่มเดียวจบ หรือ key แบบ
+   "bookKey__chN" ของตอนในหนังสือรายตอน) ให้เป็นชื่อที่อ่านเข้าใจง่าย โดยใช้
+   booksListCache ที่โหลดไว้จากหน้า "จัดการหนังสือ" ถ้ายังหาไม่เจอ (เช่น
+   หนังสือเล่มนั้นถูกลบไปแล้ว หรือ booksListCache ยังโหลดไม่เสร็จ) จะโชว์ key
+   ดิบ ๆ แทนไปก่อน ไม่ทำให้หน้าเว็บพัง */
+function resolveLockTitle(lockKey){
+  const chapterMatch = /^(.+)__ch(\d+)$/.exec(lockKey);
+  if(chapterMatch){
+    const bookKey = chapterMatch[1];
+    const chapterIdx = parseInt(chapterMatch[2], 10) - 1;
+    const book = booksListCache.find(b => b.key === bookKey);
+    if(book && book.chapters && book.chapters[chapterIdx]){
+      return `${book.title} • ตอนที่ ${chapterIdx + 1}: ${book.chapters[chapterIdx].title}`;
+    }
+    return lockKey;
+  }
+  const book = booksListCache.find(b => b.key === lockKey);
+  return book ? book.title : lockKey;
+}
+
+function renderLockedReadersList(){
+  const wrap = document.getElementById('lockedReadersListWrap');
+  if(!wrap) return;
+
+  const now = Date.now();
+  const entries = [];
+  (adminUsersData || []).forEach(u=>{
+    Object.keys(u.locks || {}).forEach(lockKey=>{
+      const unlockAt = u.locks[lockKey];
+      if(typeof unlockAt === "number" && unlockAt > now){
+        entries.push({ uid: u.uid, userName: u.name, lockKey, unlockAt });
+      }
+    });
+  });
+  entries.sort((a, b)=> a.unlockAt - b.unlockAt);
+
+  if(entries.length === 0){
+    wrap.innerHTML = `<p class="admin-empty">ไม่มีนักอ่านที่ถูกล็อกอยู่ในขณะนี้</p>`;
+    return;
+  }
+
+  wrap.innerHTML = entries.map(e=> `
+    <div class="admin-item-row">
+      <div class="admin-item-info">
+        <strong>🔒 ${escapeHtmlAttr(e.userName)}</strong>
+        <span>${escapeHtmlAttr(resolveLockTitle(e.lockKey))}</span>
+        <span>ปลดล็อกอัตโนมัติวันที่ ${new Date(e.unlockAt).toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' })}</span>
+      </div>
+      <div class="admin-item-actions">
+        <button class="btn danger small" type="button" data-unlock-uid="${e.uid}" data-unlock-key="${escapeHtmlAttr(e.lockKey)}">ปลดล็อก</button>
+      </div>
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('[data-unlock-uid]').forEach(btn=>{
+    btn.addEventListener('click', ()=> unlockReader(btn.dataset.unlockUid, btn.dataset.unlockKey, btn));
+  });
+}
+
+async function unlockReader(uid, lockKey, btn){
+  if(!confirm("ยืนยันปลดล็อกให้นักอ่านคนนี้ก่อนครบกำหนด 15 วันหรือไม่?")) return;
+  if(btn){ btn.disabled = true; btn.textContent = "กำลังปลดล็อก..."; }
+  try{
+    await db.collection('users').doc(uid).update({
+      [`locks.${lockKey}`]: firebase.firestore.FieldValue.delete()
+    });
+    showToast("ปลดล็อกสำเร็จ");
+    /* อัปเดตข้อมูลในแคชทันทีด้วย ไม่ต้องรอโหลดใหม่ทั้งหมด จะได้เห็นผลไว */
+    const u = (adminUsersData || []).find(x => x.uid === uid);
+    if(u && u.locks) delete u.locks[lockKey];
+    renderLockedReadersList();
+  }catch(err){
+    console.warn("unlockReader error:", err);
+    showToast("ปลดล็อกไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore");
+    if(btn){ btn.disabled = false; btn.textContent = "ปลดล็อก"; }
+  }
+}
+
+document.getElementById('lockedReadersRefreshBtn').addEventListener('click', loadAdminDashboard);
 
 document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminDashboard);
 document.getElementById('adminRedemptionsRefreshBtn').addEventListener('click', loadAdminDashboard);
@@ -1465,11 +1629,12 @@ const categoriesForAdmin = [
    รองรับการเติบโตในอนาคตได้ดีกว่า - กดแท็บไหนก็โชว์แค่ส่วนนั้น ส่วนอื่นซ่อนไว้
    (แต่ข้อมูลข้างในยังโหลดปกติ ไม่ได้รอให้เปิดแท็บก่อนถึงจะโหลด)
 =================================================================== */
-const ADMIN_PAGE_KEYS = ["qr", "readers", "redemptions", "kpch", "shipping", "catalog", "books"];
+const ADMIN_PAGE_KEYS = ["qr", "readers", "redemptions", "locks", "kpch", "shipping", "catalog", "books"];
 const ADMIN_PAGE_ID = {
   qr: "adminPageQr",
   readers: "adminPageReaders",
   redemptions: "adminPageRedemptions",
+  locks: "adminPageLocks",
   kpch: "adminPageKpch",
   shipping: "adminPageShipping",
   catalog: "adminPageCatalog",
@@ -1509,16 +1674,24 @@ async function loadRewardsManager(){
 }
 
 function renderRewardsList(){
-  const wrap = document.getElementById('rewardsListWrap');
-  if(rewardsListCache.length === 0){
-    wrap.innerHTML = `<p class="admin-empty">ยังไม่มีรางวัลในระบบ</p>`;
+  const consumables = rewardsListCache.filter(r => r.rewardType !== "durable");
+  const durables = rewardsListCache.filter(r => r.rewardType === "durable");
+
+  renderRewardsSubList('rewardsListWrapConsumable', consumables, "ยังไม่มีสินค้าบริโภคในระบบ");
+  renderRewardsSubList('rewardsListWrapDurable', durables, "ยังไม่มีสินค้าอุปโภคในระบบ");
+}
+
+function renderRewardsSubList(wrapId, list, emptyText){
+  const wrap = document.getElementById(wrapId);
+  if(list.length === 0){
+    wrap.innerHTML = `<p class="admin-empty">${emptyText}</p>`;
     return;
   }
-  wrap.innerHTML = rewardsListCache.map(r => `
+  wrap.innerHTML = list.map(r => `
     <div class="admin-item-row">
       <div class="admin-item-info">
         <strong>${r.rewardType === "durable" ? "📦" : "🍬"} ${escapeHtmlAttr(r.title)}</strong>
-        <span>${typeof r.cost === "number" ? r.cost + " แต้ม" : escapeHtmlAttr(r.cost)} · ${r.rewardType === "durable" ? "สินค้าอุปโภค (จัดส่ง)" : "สินค้าบริโภค (สแกน QR)"} · รูป: ${escapeHtmlAttr(r.img) || "ไม่มี"}</span>
+        <span>${typeof r.cost === "number" ? r.cost + " แต้ม" : escapeHtmlAttr(r.cost)} · รูป: ${escapeHtmlAttr(r.img) || "ไม่มี"}</span>
       </div>
       <div class="admin-item-actions">
         <button class="btn secondary small" type="button" data-edit-reward="${r.key}">แก้ไข</button>
@@ -1535,11 +1708,11 @@ function renderRewardsList(){
   });
 }
 
-function openRewardForm(key){
+function openRewardForm(key, defaultType){
   const existing = key ? rewardsListCache.find(r => r.key === key) : null;
   const formWrap = document.getElementById('rewardFormWrap');
   formWrap.style.display = "block";
-  const rewardType = existing ? (existing.rewardType || "consumable") : "consumable";
+  const rewardType = existing ? (existing.rewardType || "consumable") : (defaultType || "consumable");
   formWrap.innerHTML = `
     <h3>${existing ? "แก้ไขรางวัล" : "เพิ่มรางวัลใหม่"}</h3>
     <div class="admin-field">
@@ -1576,6 +1749,8 @@ function openRewardForm(key){
       <button class="btn secondary" id="rfCancelBtn" type="button">ยกเลิก</button>
     </div>
   `;
+
+  formWrap.scrollIntoView({ behavior:"smooth", block:"center" });
 
   document.getElementById('rfCancelBtn').addEventListener('click', ()=>{
     formWrap.style.display = "none";
@@ -1635,7 +1810,8 @@ async function deleteReward(key){
   }
 }
 
-document.getElementById('addRewardBtn').addEventListener('click', ()=> openRewardForm(null));
+document.getElementById('addRewardBtnConsumable').addEventListener('click', ()=> openRewardForm(null, "consumable"));
+document.getElementById('addRewardBtnDurable').addEventListener('click', ()=> openRewardForm(null, "durable"));
 
 /* ---------------- Books manager ---------------- */
 let booksListCache = [];
@@ -1655,6 +1831,9 @@ async function loadBooksManager(){
     renderBookCategoryFilterBar();
     renderBooksList();
     checkSeedNote();
+    /* รีเฟรชรายการ "นักอ่านที่ถูกล็อก" อีกครั้ง เผื่อโหลดมาก่อนหน้าหนังสือ
+       (booksListCache) จะได้แปลง key เป็นชื่อเล่ม/ตอนที่อ่านง่ายถูกต้อง */
+    if(typeof renderLockedReadersList === "function") renderLockedReadersList();
   }catch(err){
     console.warn("loadBooksManager error:", err);
     wrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore</p>`;
