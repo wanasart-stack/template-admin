@@ -610,6 +610,7 @@
       <button type="button" class="admin-nav-tab" data-admin-page="shipping">📦 คำสั่งจัดส่งสินค้าอุปโภค</button>
       <button type="button" class="admin-nav-tab" data-admin-page="catalog">🛍️ จัดการแคตตาล็อก</button>
       <button type="button" class="admin-nav-tab" data-admin-page="books">📚 จัดการหนังสือ</button>
+      <button type="button" class="admin-nav-tab" data-admin-page="guide">📖 คู่มือการอ่าน</button>
     </div>
   </header>
 
@@ -761,6 +762,25 @@
       <div id="booksListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
       <button class="btn" id="addBookBtn" type="button">+ เพิ่มหนังสือใหม่</button>
       <div id="bookFormWrap" style="display:none; margin-top:18px;"></div>
+    </div>
+  </div>
+
+  <div class="page admin-page-section" id="adminPageGuide" style="display:none;">
+    <div class="admin-content-wrap" id="readingGuideWrap">
+      <h2>📖 แก้ไขคู่มือการอ่าน</h2>
+      <p class="admin-content-desc">เนื้อหานี้จะแสดงให้นักอ่านดูเมื่อกดปุ่ม "คู่มือการอ่าน" ในหน้า index.html แก้ไขได้ตลอด เช่น เมื่อมีหนังสือหรือหมวดหมู่เพิ่มขึ้น หรือเปลี่ยนกติกาการล็อก/แลกแต้ม (จำนวนหนังสือและหมวดหมู่ที่นักอ่านเห็นในคู่มือจะคำนวณให้อัตโนมัติเสมอ ไม่ต้องมาแก้ตัวเลขเอง)</p>
+
+      <div class="admin-field">
+        <label>เนื้อหาคู่มือ</label>
+        <div id="guideToolbarWrap"></div>
+        <textarea rows="16" id="guideTextarea"></textarea>
+        <div id="guidePreviewWrap"></div>
+      </div>
+
+      <div class="admin-form-actions">
+        <button class="btn" id="guideSaveBtn" type="button">บันทึกคู่มือ</button>
+        <button class="btn secondary" id="guideResetDefaultBtn" type="button">↺ คืนค่าเริ่มต้น</button>
+      </div>
     </div>
   </div>
 
@@ -967,6 +987,7 @@ auth.onAuthStateChanged(async (user)=>{
     loadBooksManager();
     loadKpchRequests();
     loadShippingOrders();
+    loadReadingGuideForEdit();
   }catch(err){
     console.warn("auth state check error:", err);
     const errorEl = document.getElementById('loginError');
@@ -1520,6 +1541,7 @@ function applyPassageFormat(textareaEl, fmt, colorHex, sizeVal){
    ของแต่ละตอน ("ch0","ch1",...) ใช้ id "passageTextarea_ch{i}" ที่ตั้งขึ้นใหม่ */
 function getPassageTextareaByCtx(ctx){
   if(ctx === "root") return document.getElementById('bfPassage');
+  if(ctx === "guide") return document.getElementById('guideTextarea');
   return document.getElementById('passageTextarea_' + ctx);
 }
 
@@ -1629,7 +1651,7 @@ const categoriesForAdmin = [
    รองรับการเติบโตในอนาคตได้ดีกว่า - กดแท็บไหนก็โชว์แค่ส่วนนั้น ส่วนอื่นซ่อนไว้
    (แต่ข้อมูลข้างในยังโหลดปกติ ไม่ได้รอให้เปิดแท็บก่อนถึงจะโหลด)
 =================================================================== */
-const ADMIN_PAGE_KEYS = ["qr", "readers", "redemptions", "locks", "kpch", "shipping", "catalog", "books"];
+const ADMIN_PAGE_KEYS = ["qr", "readers", "redemptions", "locks", "kpch", "shipping", "catalog", "books", "guide"];
 const ADMIN_PAGE_ID = {
   qr: "adminPageQr",
   readers: "adminPageReaders",
@@ -1638,7 +1660,8 @@ const ADMIN_PAGE_ID = {
   kpch: "adminPageKpch",
   shipping: "adminPageShipping",
   catalog: "adminPageCatalog",
-  books: "adminPageBooks"
+  books: "adminPageBooks",
+  guide: "adminPageGuide"
 };
 
 function showAdminPage(pageKey){
@@ -2294,6 +2317,76 @@ function wireBookFormEvents(){
 }
 
 document.getElementById('addBookBtn').addEventListener('click', ()=> openBookForm(null));
+
+/* ===================================================================
+   คู่มือการอ่าน
+   ใช้แถบเครื่องมือจัดรูปแบบ + ตัวอย่างสด (preview) ชุดเดียวกับที่ใช้แก้ไข
+   เนื้อเรื่องหนังสือทุกอย่าง (renderPassageToolbarHtml / applyPassageFormat /
+   updatePassagePreview) แค่ใช้ ctx เป็น "guide" แทน เก็บเนื้อหาไว้ที่
+   Firestore collection "siteSettings" เอกสารชื่อ "readingGuide" field
+   "text" - เป็นเอกสารเดี่ยว ไม่ต้องมีการค้นหา/กรองอะไรซับซ้อน */
+const DEFAULT_READING_GUIDE = `[h2]หมวดหมู่หนังสือ[/h2]
+เลือกอ่านหนังสือจากหมวดหมู่ต่าง ๆ ได้ที่แถบปุ่มด้านบน หรือกด "ทั้งหมด" เพื่อดูทุกหมวดพร้อมกัน บางหมวด เช่น "หนังสือเรียน" จะมีเมนูย่อยให้เลือกระดับชั้นอีกที
+
+[h2]วิธีอ่านและรับแต้ม[/h2]
+เลือกหนังสือที่สนใจ อ่านเนื้อเรื่องให้จบ แล้วกด "พร้อม!" เพื่อเริ่มทำแบบทดสอบท้ายเรื่อง 5 ข้อ ตอบถูกครบทุกข้อจะได้รับแต้มทันที (จำนวนแต้มแต่ละเล่ม/แต่ละตอนอาจไม่เท่ากัน ดูได้จากป้าย "🏆 แต้ม" บนปกหนังสือ) หนังสือบางเล่มแบ่งเป็นหลายตอน แต่ละตอนทำแบบทดสอบและรับแต้มแยกกันได้
+
+[h2]นำแต้มไปแลกอะไรได้บ้าง[/h2]
+กดปุ่ม "🎁 แลกแต้มเป็นรางวัล" เพื่อดูสิ่งที่แลกได้ แบ่งเป็น 3 แบบ:
+[color=#2C6693]1. ชั่วโมง กพช.[/color] สำหรับนักศึกษา สกร. กรอกข้อมูลแลกได้เลย (500 แต้ม = 1 ชั่วโมง)
+[color=#2C6693]2. สินค้าบริโภค[/color] เช่น ขนม เครื่องดื่ม แลกด้วยการสแกน QR Code รับที่ศูนย์
+[color=#2C6693]3. สินค้าอุปโภค[/color] เช่น กระเป๋า ปากกา กรอกที่อยู่แล้วระบบจัดส่งให้ทางไปรษณีย์
+
+[h2]⚠️ ข้อควรระวัง: ตอบผิดครบ 3 ครั้ง[/h2]
+แบบทดสอบแต่ละเล่ม/ตอน ทำได้สูงสุด 3 ครั้ง ถ้าตอบผิดครบ 3 ครั้งโดยยังไม่ผ่าน ระบบจะ[color=#A3372A]ล็อกเล่มนั้น (หรือตอนนั้น ถ้าเป็นหนังสือแบบรายตอน) เป็นเวลา 15 วัน[/color] จะมีไอคอนกุญแจ 🔒 ขึ้นให้เห็นชัดเจน พ้นกำหนด 15 วันแล้วระบบจะปลดล็อกให้อัตโนมัติ ดังนั้นแนะนำให้อ่านเนื้อเรื่องให้ละเอียดก่อนเริ่มทำแบบทดสอบทุกครั้ง
+
+[h2]เคล็ดลับอื่น ๆ[/h2]
+กดปุ่ม "ดูประวัติการแลกแต้ม" เพื่อตรวจสอบย้อนหลังว่าเคยแลกอะไรไปแล้วบ้าง และสามารถกลับมาอ่านหนังสือที่อ่านผ่านแล้วซ้ำได้ตลอดเวลา โดยไม่เสียแต้มเพิ่มหรือลดแต้มเดิม`;
+
+let guideLoaded = false;
+
+async function loadReadingGuideForEdit(){
+  document.getElementById('guideToolbarWrap').innerHTML = renderPassageToolbarHtml("guide");
+  document.getElementById('guidePreviewWrap').innerHTML = renderPassagePreviewHtml("guide");
+
+  const textarea = document.getElementById('guideTextarea');
+  textarea.addEventListener('input', ()=> updatePassagePreview("guide"));
+
+  try{
+    const snap = await db.collection('siteSettings').doc('readingGuide').get();
+    textarea.value = (snap.exists && snap.data().text) ? snap.data().text : DEFAULT_READING_GUIDE;
+  }catch(err){
+    console.warn("loadReadingGuideForEdit error:", err);
+    textarea.value = DEFAULT_READING_GUIDE;
+  }
+  updatePassagePreview("guide");
+  guideLoaded = true;
+}
+
+document.getElementById('guideSaveBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('guideSaveBtn');
+  btn.disabled = true;
+  btn.textContent = "กำลังบันทึก...";
+  try{
+    await db.collection('siteSettings').doc('readingGuide').set({
+      text: document.getElementById('guideTextarea').value,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: currentUserName
+    });
+    showToast("บันทึกคู่มือสำเร็จ");
+  }catch(err){
+    console.warn("save guide error:", err);
+    showToast("บันทึกไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore");
+  }
+  btn.disabled = false;
+  btn.textContent = "บันทึกคู่มือ";
+});
+
+document.getElementById('guideResetDefaultBtn').addEventListener('click', ()=>{
+  if(!confirm("คืนค่าเริ่มต้นจะเขียนทับข้อความที่แก้ไขไว้ในช่องตอนนี้ (ยังไม่กระทบคู่มือที่เผยแพร่อยู่จนกว่าจะกดบันทึก) ยืนยันหรือไม่?")) return;
+  document.getElementById('guideTextarea').value = DEFAULT_READING_GUIDE;
+  updatePassagePreview("guide");
+});
 
 /* ===================================================================
    คำขอแลกชั่วโมง กพช.
