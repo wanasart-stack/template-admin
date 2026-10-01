@@ -1659,8 +1659,8 @@ document.querySelectorAll('.admin-nav-tab').forEach(btn=>{
 let rewardsListCache = [];
 
 async function loadRewardsManager(){
-  const wrap = document.getElementById('rewardsListWrap');
-  wrap.innerHTML = `<p class="admin-empty">กำลังโหลด...</p>`;
+  document.getElementById('rewardsListWrapConsumable').innerHTML = `<p class="admin-empty">กำลังโหลด...</p>`;
+  document.getElementById('rewardsListWrapDurable').innerHTML = `<p class="admin-empty">กำลังโหลด...</p>`;
   try{
     const snap = await db.collection('rewardsCatalog').orderBy('order').get();
     rewardsListCache = snap.docs.map(d => ({ key: d.id, ...d.data() }));
@@ -1669,7 +1669,9 @@ async function loadRewardsManager(){
     renderQrProductPicker();
   }catch(err){
     console.warn("loadRewardsManager error:", err);
-    wrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore</p>`;
+    const errMsg = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore</p>`;
+    document.getElementById('rewardsListWrapConsumable').innerHTML = errMsg;
+    document.getElementById('rewardsListWrapDurable').innerHTML = errMsg;
   }
 }
 
