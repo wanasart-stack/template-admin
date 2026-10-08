@@ -761,7 +761,7 @@
       <div class="admin-cat-filter-bar" id="adminCatFilterBar"></div>
       <div id="booksListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
       <button class="btn" id="addBookBtn" type="button">+ เพิ่มหนังสือใหม่</button>
-      <button class="btn secondary" id="importTravelBtn" type="button" style="margin-top:10px;">📥 นำเข้าหนังสือท่องเที่ยวรายจังหวัด (ไฟล์ .json)</button>
+      <button class="btn secondary" id="importTravelBtn" type="button" style="margin-top:10px;">📥 นำเข้าหนังสือจากไฟล์ (.json) — ท่องเที่ยว / ความรู้ทั่วไป ฯลฯ</button>
       <input type="file" id="importTravelFile" accept=".json,application/json" style="display:none;">
       <p class="admin-content-desc" id="importTravelStatus" style="margin-top:8px;"></p>
       <div id="bookFormWrap" style="display:none; margin-top:18px;"></div>
@@ -2424,7 +2424,7 @@ document.getElementById('importTravelFile').addEventListener('change', async (e)
         for(let i = b.chapters.length; i < old.chapters.length; i++) batch.delete(db.collection('contentBody').doc(`${b.key}__ch${i+1}`));
       }
       const meta = {
-        categoryKey: b.categoryKey || "travel",
+        categoryKey: b.categoryKey || "general",
         title: b.title,
         blurb: b.blurb || "",
         featured: false,
