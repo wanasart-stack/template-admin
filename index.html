@@ -758,6 +758,7 @@
       <div class="admin-seed-note" id="seedNoteBox" style="display:none;">
         ยังไม่มีข้อมูลหนังสือ/รางวัลใน Firestore เลย ถ้าเป็นการเปิดใช้ระบบนี้ครั้งแรก ให้เปิดไฟล์ <code>index.html</code> ล็อกอินด้วยบัญชีแอดมินก่อน แล้วกด F12 เปิด Console พิมพ์คำสั่ง <code>seedContentToFirestore()</code> แล้ว Enter หนึ่งครั้ง เพื่อนำเข้าหนังสือ 36 เล่ม + รางวัลเดิมเข้ามาก่อน จากนั้นกลับมาหน้านี้แล้วกด "รีเฟรชข้อมูล" (ทำครั้งเดียวพอ)
       </div>
+      <div class="admin-content-desc" id="booksPointsSummary" style="margin:10px 0; padding:12px 14px; background:rgba(180,144,63,0.12); border-radius:8px; line-height:1.8;"></div>
       <div class="admin-cat-filter-bar" id="adminCatFilterBar"></div>
       <div id="booksListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
       <button class="btn" id="addBookBtn" type="button">+ เพิ่มหนังสือใหม่</button>
@@ -1850,12 +1851,68 @@ let bookDraft = null;
    ให้อัตโนมัติด้วย */
 let activeBookCategoryFilter = null;
 
+/* ดัชนีหนังสือสำหรับแคชฝั่งผู้อ่าน: เอกสาร content/_catalog เก็บเวลาอัปเดตล่าสุด + รหัสหนังสือ
+   ทั้งหมด ผู้อ่านเทียบกับแคชในเครื่องเพื่อรู้ว่ามีหนังสือเพิ่ม/แก้/ลบหรือไม่ ต้องเขียนใหม่ทุกครั้ง
+   ที่มีการเพิ่ม/แก้/ลบ/นำเข้าหนังสือ (markCatalogDirty แล้วโหลดรายการใหม่) หรือเมื่อยังไม่มี/
+   รายการรหัสไม่ตรงกับความจริง */
+let catalogDirty = false;
+function markCatalogDirty(){ catalogDirty = true; }
+async function syncCatalogDoc(){
+  try{
+    const keys = booksListCache.map(b => b.key).sort();
+    const ref = db.collection('content').doc('_catalog');
+    let need = catalogDirty;
+    if(!need){
+      const cur = await ref.get();
+      const curKeys = cur.exists && Array.isArray(cur.data().keys) ? cur.data().keys.slice().sort() : null;
+      need = !cur.exists || !curKeys || curKeys.length !== keys.length || curKeys.some((k, i)=> k !== keys[i]);
+    }
+    if(need){
+      await ref.set({ keys, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      catalogDirty = false;
+    }
+  }catch(err){
+    console.warn("syncCatalogDoc error:", err);
+  }
+}
+
+/* สรุปจำนวนเล่ม/ตอน/แต้มรวมทั้งหมดของหนังสือที่มีอยู่จริงตอนนี้ (นับจากข้อมูลใน Firestore)
+   หนังสือหลายตอน = รวมแต้มทุกตอน, หนังสือเล่มเดียวจบ = แต้มของเล่ม (ไม่ระบุ = 10 แต้ม) */
+function renderBooksPointsSummary(){
+  const el = document.getElementById('booksPointsSummary');
+  if(!el) return;
+  const pts = v => (typeof v === "number" && v > 0) ? v : 10;
+  const perCat = {};
+  let totalBooks = 0, totalUnits = 0, totalPts = 0;
+  booksListCache.forEach(b=>{
+    let units = 1, p = pts(b.points);
+    if(Array.isArray(b.chapters) && b.chapters.length){
+      units = b.chapters.length;
+      p = b.chapters.reduce((sum, ch)=> sum + pts(ch.points), 0);
+    }
+    const k = b.categoryKey || "-";
+    if(!perCat[k]) perCat[k] = { books:0, units:0, pts:0 };
+    perCat[k].books++; perCat[k].units += units; perCat[k].pts += p;
+    totalBooks++; totalUnits += units; totalPts += p;
+  });
+  const hours = (totalPts / 300).toFixed(1);
+  const rows = Object.keys(perCat).map(k=>{
+    const cat = (typeof categoriesForAdmin !== "undefined" ? categoriesForAdmin.find(c => c.key === k) : null);
+    const name = cat ? ((cat.group ? cat.group + " - " : "") + cat.title) : k;
+    const c = perCat[k];
+    return `<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;"><span>${name}</span><span>${c.books} เล่ม · ${c.units} ตอน · ${c.pts.toLocaleString('th-TH')} แต้ม</span></div>`;
+  }).join('');
+  el.innerHTML = `<strong>📊 อ่านครบทุกเล่มทุกตอนจะได้รวม ${totalPts.toLocaleString('th-TH')} แต้ม</strong> (${totalBooks} เล่ม · ${totalUnits} ตอน · เทียบเป็น กพช. ประมาณ ${hours} ชั่วโมง ที่ 300 แต้ม/ชม.)<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:13px;">ดูแยกตามหมวด</summary>${rows}</details>`;
+}
+
 async function loadBooksManager(){
   const wrap = document.getElementById('booksListWrap');
   wrap.innerHTML = `<p class="admin-empty">กำลังโหลด...</p>`;
   try{
     const snap = await db.collection('content').orderBy('order').get();
     booksListCache = snap.docs.map(d => ({ key: d.id, ...d.data() }));
+    renderBooksPointsSummary();
+    syncCatalogDoc();   // อัปเดตดัชนีหนังสือสำหรับแคชฝั่งผู้อ่าน (ไม่ต้องรอ)
     renderBookCategoryFilterBar();
     renderBooksList();
     checkSeedNote();
@@ -1946,6 +2003,7 @@ async function deleteBook(key){
     }
     batch.delete(db.collection('content').doc(key));
     await batch.commit();
+    markCatalogDirty();
     showToast("ลบหนังสือแล้ว");
     loadBooksManager();
   }catch(err){
@@ -2344,6 +2402,8 @@ function wireBookFormEvents(){
       payload.lazy = firebase.firestore.FieldValue.delete();   // เปลี่ยนเป็นหนังสือเล่มเดียวจบ ไม่ใช่ lazy แล้ว
     }
 
+    payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    markCatalogDirty();
     const key = d.key || ("book_" + Date.now().toString(36));
     const btn = document.getElementById('bfSaveBtn');
     btn.disabled = true;
@@ -2432,11 +2492,13 @@ document.getElementById('importTravelFile').addEventListener('change', async (e)
         coverImg: old ? (old.coverImg || "") : "",
         order: old && typeof old.order === "number" ? old.order : nextOrder++,
         lazy: true,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         chapters: b.chapters.map(ch => ({ title: ch.title, image: "", points: ch.points || 10 }))
       };
       if(!old) meta.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       batch.set(db.collection('content').doc(b.key), meta, { merge:true });
       await batch.commit();
+      markCatalogDirty();
       done++;
     }catch(err){
       console.warn("import error:", b.key, err);
