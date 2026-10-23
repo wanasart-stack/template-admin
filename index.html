@@ -1445,11 +1445,10 @@ document.getElementById('adminRedemptionsRefreshBtn').addEventListener('click', 
 
 document.getElementById('adminRedemptionsTickerBtn').addEventListener('click', async ()=>{
   try{
-    const items = adminRedemptionsData.slice(0, 30).map(r=>({
-      name: String(r.userName || "นักอ่าน").slice(0, 40),
-      reward: String(r.rewardTitle || "").replace(/\s*\(จัดส่งทางไปรษณีย์\)\s*$/, "").slice(0, 60),
+    const items = adminRedemptionsData.slice(0, 200).map(r=>({
+      name: String(r.userName || "").trim().slice(0, 40),
       ts: (r.timestamp && r.timestamp.getTime) ? r.timestamp.getTime() : Date.now()
-    })).reverse();
+    })).filter(x=>x.name).reverse();
     if(!items.length){ showToast("ยังไม่มีประวัติการแลกรางวัล"); return; }
     await db.collection('siteStats').doc('redeemers').set({ items });
     showToast("อัปเดตแถบวิ่งแล้ว " + items.length + " รายการ");
