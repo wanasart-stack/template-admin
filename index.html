@@ -687,6 +687,7 @@
       <p class="admin-report-desc">ทุกครั้งที่นักอ่านคนไหนแลกแต้มเป็นรางวัลหรือชั่วโมง กพช. จะขึ้นบันทึกไว้ที่นี่ เรียงจากล่าสุดก่อน</p>
       <div class="admin-toolbar">
         <button class="btn" id="adminRedemptionsExportBtn" type="button">📥 ดาวน์โหลดเป็น Excel</button>
+      <button class="btn" id="adminRedemptionsTickerBtn" type="button">🎁 อัปเดตแถบวิ่งชื่อผู้แลกรางวัล</button>
         <button class="btn secondary" id="adminRedemptionsRefreshBtn" type="button">🔄 รีเฟรชข้อมูล</button>
       </div>
       <div class="admin-table-wrap">
@@ -1441,6 +1442,22 @@ document.getElementById('lockedReadersRefreshBtn').addEventListener('click', loa
 
 document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminDashboard);
 document.getElementById('adminRedemptionsRefreshBtn').addEventListener('click', loadAdminDashboard);
+
+document.getElementById('adminRedemptionsTickerBtn').addEventListener('click', async ()=>{
+  try{
+    const items = adminRedemptionsData.slice(0, 30).map(r=>({
+      name: String(r.userName || "นักอ่าน").slice(0, 40),
+      reward: String(r.rewardTitle || "").replace(/\s*\(จัดส่งทางไปรษณีย์\)\s*$/, "").slice(0, 60),
+      ts: (r.timestamp && r.timestamp.getTime) ? r.timestamp.getTime() : Date.now()
+    })).reverse();
+    if(!items.length){ showToast("ยังไม่มีประวัติการแลกรางวัล"); return; }
+    await db.collection('siteStats').doc('redeemers').set({ items });
+    showToast("อัปเดตแถบวิ่งแล้ว " + items.length + " รายการ");
+  }catch(err){
+    console.error(err);
+    showToast("บันทึกไม่สำเร็จ: " + (err.code || err.message) + " (ตรวจ Firestore Rules ของ siteStats)");
+  }
+});
 
 document.getElementById('adminRedemptionsExportBtn').addEventListener('click', ()=>{
   if(typeof XLSX === "undefined"){
