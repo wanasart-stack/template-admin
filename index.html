@@ -613,6 +613,7 @@
       <button type="button" class="admin-nav-tab" data-admin-page="redemptions">📜 ประวัติการแลกแต้ม</button>
       <button type="button" class="admin-nav-tab" data-admin-page="locks">🔒 นักอ่านที่ถูกล็อก</button>
       <button type="button" class="admin-nav-tab" data-admin-page="kpch">🕐 คำขอแลกชั่วโมง กพช.<span class="nav-badge" id="badgeKpch" style="display:none;"></span></button>
+      <button type="button" class="admin-nav-tab" data-admin-page="intents">📝 แจ้งความประสงค์แลกรางวัล<span class="nav-badge" id="badgeIntents" style="display:none;"></span></button>
       <button type="button" class="admin-nav-tab" data-admin-page="shipping">📦 คำสั่งจัดส่งสินค้าอุปโภค<span class="nav-badge" id="badgeShipping" style="display:none;"></span></button>
       <button type="button" class="admin-nav-tab" data-admin-page="catalog">🛍️ จัดการแคตตาล็อก</button>
       <button type="button" class="admin-nav-tab" data-admin-page="books">📚 จัดการหนังสือ</button>
@@ -725,6 +726,19 @@
     </div>
   </div>
 
+  <div class="page admin-page-section" id="adminPageIntents" style="display:none;">
+    <div class="admin-content-wrap" id="intentsWrap">
+      <h2>📝 แจ้งความประสงค์แลกรางวัล</h2>
+      <p class="admin-content-desc">รายชื่อนักอ่านที่แจ้งล่วงหน้าว่าจะแลกรางวัลชิ้นใด กี่ชิ้น เพื่อให้ครูเตรียมรางวัลให้เพียงพอ (ไม่หักแต้ม) ดาวน์โหลดเป็น Excel จะมีชีตสรุปรางวัลแต่ละชิ้นพร้อมจำนวนรวมและรายชื่อผู้แลก</p>
+      <div class="admin-toolbar">
+        <button class="btn" id="intentsExportBtn" type="button">📥 ดาวน์โหลดเป็น Excel</button>
+        <button class="btn secondary" id="intentsRefreshBtn" type="button">🔄 รีเฟรชรายการ</button>
+      </div>
+      <div id="intentsSummaryWrap"></div>
+      <div id="intentsListWrap"><p class="admin-empty">กำลังโหลด...</p></div>
+    </div>
+  </div>
+
   <div class="page admin-page-section" id="adminPageShipping" style="display:none;">
     <div class="admin-content-wrap" id="shippingOrdersWrap">
       <h2>📦 คำสั่งจัดส่งสินค้าอุปโภค</h2>
@@ -797,7 +811,7 @@
 
   <footer class="site-footer">
     <div class="org-line">ศูนย์ส่งเสริมการเรียนรู้ระดับอำเภอเทิง</div>
-    <div>สร้างสรรค์โดย นายวนศาสตร์ วัฒนาสกุลลี ครู สกร.ระดับอำเภอเทิง</div>
+    <div style="text-align:center;">สร้างสรรค์โดย งานการเรียนรู้ตลอดชีวิต<br>สกร.ระดับอำเภอเทิง</div>
   </footer>
 </div>
 
@@ -1678,13 +1692,14 @@ const categoriesForAdmin = [
    รองรับการเติบโตในอนาคตได้ดีกว่า - กดแท็บไหนก็โชว์แค่ส่วนนั้น ส่วนอื่นซ่อนไว้
    (แต่ข้อมูลข้างในยังโหลดปกติ ไม่ได้รอให้เปิดแท็บก่อนถึงจะโหลด)
 =================================================================== */
-const ADMIN_PAGE_KEYS = ["qr", "readers", "redemptions", "locks", "kpch", "shipping", "catalog", "books", "guide"];
+const ADMIN_PAGE_KEYS = ["qr", "readers", "redemptions", "locks", "kpch", "intents", "shipping", "catalog", "books", "guide"];
 const ADMIN_PAGE_ID = {
   qr: "adminPageQr",
   readers: "adminPageReaders",
   redemptions: "adminPageRedemptions",
   locks: "adminPageLocks",
   kpch: "adminPageKpch",
+  intents: "adminPageIntents",
   shipping: "adminPageShipping",
   catalog: "adminPageCatalog",
   books: "adminPageBooks",
@@ -1698,6 +1713,7 @@ function showAdminPage(pageKey){
   document.querySelectorAll('.admin-nav-tab').forEach(btn=>{
     btn.classList.toggle('active', btn.dataset.adminPage === pageKey);
   });
+  if(pageKey === 'intents') loadIntents();
   window.scrollTo({ top:0, behavior:"smooth" });
 }
 
@@ -2621,12 +2637,14 @@ async function refreshRequestBadges(){
     el.style.display = n > 0 ? "inline-block" : "none";
   };
   try{
-    const [k, sh] = await Promise.all([
+    const [k, sh, it] = await Promise.all([
       db.collection('kpchRequests').where('status', '==', 'pending').limit(100).get(),
-      db.collection('shippingOrders').where('status', '==', 'pending').limit(100).get()
+      db.collection('shippingOrders').where('status', '==', 'pending').limit(100).get(),
+      db.collection('rewardIntents').where('status', '==', 'pending').limit(100).get().catch(()=> null)
     ]);
     set('badgeKpch', k.size);
     set('badgeShipping', sh.size);
+    if(it) set('badgeIntents', it.size);
   }catch(err){
     console.warn("refreshRequestBadges error:", err);
   }
@@ -2722,6 +2740,115 @@ document.getElementById('kpchExportBtn').addEventListener('click', ()=>{
    บันทึกไว้ที่ collection "shippingOrders" ให้แอดมินมาดูตรงนี้ เพื่อไปแพ็ค/
    จัดส่งสินค้าจริงต่อ แล้วกดปุ่ม "จัดส่งแล้ว" เพื่อเปลี่ยนสถานะกันการทำงานซ้ำ
 =================================================================== */
+/* ===================================================================
+   แจ้งความประสงค์แลกรางวัล (collection "rewardIntents")
+=================================================================== */
+let intentsCache = [];
+const fmtIntentDate = (t)=> (t && t.toDate) ? t.toDate().toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' }) : "-";
+
+async function loadIntents(){
+  const wrap = document.getElementById('intentsListWrap');
+  wrap.innerHTML = `<p class="admin-empty">กำลังโหลด...</p>`;
+  try{
+    const snap = await db.collection('rewardIntents').orderBy('createdAt', 'desc').limit(500).get();
+    intentsCache = snap.docs.map(d => ({ key: d.id, ...d.data() }));
+    renderIntents();
+    refreshRequestBadges();
+  }catch(err){
+    console.warn("loadIntents error:", err);
+    wrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore (ต้องเพิ่ม Security Rules ให้ collection rewardIntents)</p>`;
+  }
+}
+
+/* สรุปรางวัล -> จำนวนรวม + รายชื่อ (เฉพาะรายการที่ยังรอจัดเตรียม) */
+function buildIntentSummary(list){
+  const map = new Map();
+  list.forEach(r=>{
+    (r.items || []).forEach(it=>{
+      const e = map.get(it.title) || { title: it.title, total: 0, people: [] };
+      e.total += it.qty || 0;
+      e.people.push({ name: r.name, qty: it.qty || 0, level: r.level, center: r.center });
+      map.set(it.title, e);
+    });
+  });
+  return [...map.values()].sort((a, b)=> b.total - a.total);
+}
+
+function renderIntents(){
+  const wrap = document.getElementById('intentsListWrap');
+  const sumWrap = document.getElementById('intentsSummaryWrap');
+  const pending = intentsCache.filter(r => r.status !== "done");
+  const summary = buildIntentSummary(pending);
+  sumWrap.innerHTML = summary.length === 0 ? "" : `
+    <div class="admin-item-row" style="display:block;">
+      <strong>📊 สรุปรางวัลที่ต้องเตรียม (รายการที่ยังรอจัดเตรียม)</strong>
+      ${summary.map(e=>`<div style="margin-top:8px;"><b>${escapeHtmlAttr(e.title)}</b> — รวม <b>${e.total}</b> ชิ้น<br><span style="font-size:12.5px;opacity:.8;">${e.people.map(p=> escapeHtmlAttr(p.name) + " (" + p.qty + ")").join(", ")}</span></div>`).join('')}
+    </div>`;
+  if(intentsCache.length === 0){
+    wrap.innerHTML = `<p class="admin-empty">ยังไม่มีการแจ้งความประสงค์แลกรางวัล</p>`;
+    return;
+  }
+  wrap.innerHTML = intentsCache.map(r=>{
+    const isDone = r.status === "done";
+    return `
+      <div class="admin-item-row">
+        <div class="admin-item-info">
+          <strong>${escapeHtmlAttr(r.name)} · ${escapeHtmlAttr(r.level)}</strong>
+          <span>${escapeHtmlAttr(r.center)} · ${fmtIntentDate(r.createdAt)}</span>
+          <span>🎁 ${(r.items || []).map(it=> escapeHtmlAttr(it.title) + " × " + it.qty).join(" , ")}</span>
+          <span><span class="kpch-status-badge ${isDone ? 'done' : 'pending'}">${isDone ? '✅ เตรียมแล้ว' : '🕓 รอจัดเตรียม'}</span></span>
+        </div>
+        <div class="admin-item-actions">
+          ${isDone ? "" : `<button class="btn small" type="button" data-done-intent="${r.key}">เตรียมแล้ว</button>`}
+        </div>
+      </div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-done-intent]').forEach(btn=>{
+    btn.addEventListener('click', ()=> markIntentDone(btn.dataset.doneIntent));
+  });
+}
+
+async function markIntentDone(key){
+  try{
+    await db.collection('rewardIntents').doc(key).update({
+      status: "done",
+      processedBy: currentUserName,
+      processedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast("บันทึกสถานะเรียบร้อยแล้ว");
+    loadIntents();
+  }catch(err){
+    console.warn("markIntentDone error:", err);
+    showToast("บันทึกสถานะไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore");
+  }
+}
+
+document.getElementById('intentsRefreshBtn').addEventListener('click', loadIntents);
+document.getElementById('intentsExportBtn').addEventListener('click', ()=>{
+  if(typeof XLSX === "undefined"){ showToast("โหลดไลบรารี Excel ไม่สำเร็จ กรุณาลองใหม่"); return; }
+  const wb = XLSX.utils.book_new();
+  /* ชีต 1: สรุปตามรางวัล (เฉพาะที่ยังรอจัดเตรียม) */
+  const sumRows = [];
+  buildIntentSummary(intentsCache.filter(r => r.status !== "done")).forEach(e=>{
+    sumRows.push({ "รางวัล": e.title, "จำนวนรวม (ชิ้น)": e.total, "จำนวนผู้แจ้ง (คน)": e.people.length, "รายชื่อผู้แลก (จำนวนชิ้น)": e.people.map(p=> p.name + " (" + p.qty + ")").join(", ") });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sumRows.length ? sumRows : [{ "รางวัล": "ไม่มีรายการรอจัดเตรียม" }]), "สรุปตามรางวัล");
+  /* ชีต 2: รายชื่อผู้แจ้งทั้งหมด (1 แถวต่อ 1 รางวัลต่อ 1 คน) */
+  const detail = [];
+  intentsCache.forEach(r=>{
+    (r.items || []).forEach(it=>{
+      detail.push({
+        "ชื่อ-สกุล": r.name, "ระดับชั้น": r.level, "ศูนย์ / ครูประจำกลุ่ม": r.center,
+        "รางวัลที่แลก": it.title, "จำนวน (ชิ้น)": it.qty,
+        "สถานะ": r.status === "done" ? "เตรียมแล้ว" : "รอจัดเตรียม",
+        "วันเวลาที่แจ้ง": fmtIntentDate(r.createdAt)
+      });
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detail.length ? detail : [{ "ชื่อ-สกุล": "ยังไม่มีข้อมูล" }]), "รายชื่อผู้แจ้ง");
+  XLSX.writeFile(wb, `แจ้งความประสงค์แลกรางวัล_${new Date().toISOString().slice(0, 10)}.xlsx`);
+});
+
 let shippingOrdersCache = [];
 
 async function loadShippingOrders(){
