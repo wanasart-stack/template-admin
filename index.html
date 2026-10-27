@@ -723,13 +723,13 @@
         <button class="btn" id="kpchExportBtn" type="button">📥 ดาวน์โหลดเป็น Excel</button>
         <button class="btn secondary" id="kpchRefreshBtn" type="button">🔄 รีเฟรชรายการ</button>
       </div>
-      <p class="admin-content-desc" style="margin-top:-4px;">เลือกศูนย์การเรียนรู้เพื่อกรองรายการและดาวน์โหลดเฉพาะศูนย์นั้น (เลือก "ทุกศูนย์" เพื่อดาวน์โหลดทั้งหมด)</p>
+      <p class="admin-content-desc" style="margin-top:-4px;">เลือกศูนย์การเรียนรู้เพื่อกรองรายการและดาวน์โหลดเฉพาะศูนย์นั้น (เลือก "ทุกศูนย์การเรียนรู้" เพื่อดาวน์โหลดทั้งหมด)</p>
       <details class="admin-subsection" id="kpchCentersManager" style="margin:8px 0 16px;">
-        <summary style="cursor:pointer;font-weight:700;">⚙️ จัดการรายชื่อศูนย์การเรียนรู้ (ที่แสดงใน dropdown หน้านักอ่าน)</summary>
-        <p class="admin-content-desc">"สกร.ระดับอำเภอเทิง" อยู่อันดับแรกเสมอและลบไม่ได้ ศูนย์ที่เพิ่มใหม่จะต่อท้ายรายการ กด "บันทึกรายชื่อศูนย์" เพื่อให้มีผลกับหน้านักอ่าน</p>
+        <summary style="cursor:pointer;font-weight:700;">⚙️ จัดการรายชื่อศูนย์การเรียนรู้ (dropdown "ศูนย์การเรียนรู้" ในฟอร์มแลกชั่วโมง กพช. หน้านักอ่าน)</summary>
+        <p class="admin-content-desc">"สกร.ระดับอำเภอเทิง" อยู่อันดับแรกเสมอและลบไม่ได้ ศูนย์ที่เพิ่มใหม่จะต่อท้ายรายการ กด "บันทึกรายชื่อศูนย์" เพื่อให้มีผลกับหน้านักอ่าน (ฟอร์มจะมีช่อง "ศูนย์การเรียนรู้" ให้เลือกก่อนช่อง "ศูนย์ / ครูประจำกลุ่ม")</p>
         <div id="kpchCentersList"></div>
         <div class="admin-toolbar">
-          <input type="text" id="kpchCenterNewInput" placeholder="ชื่อศูนย์ / ครูประจำกลุ่มที่ต้องการเพิ่ม" style="flex:1 1 260px;">
+          <input type="text" id="kpchCenterNewInput" placeholder="ชื่อศูนย์การเรียนรู้ที่ต้องการเพิ่ม เช่น สกร.ระดับอำเภอ..." style="flex:1 1 260px;">
           <button class="btn secondary" id="kpchCenterAddBtn" type="button">+ เพิ่มศูนย์</button>
           <button class="btn" id="kpchCentersSaveBtn" type="button">💾 บันทึกรายชื่อศูนย์</button>
         </div>
@@ -2678,7 +2678,7 @@ async function loadKpchRequests(){
   try{
     const snap = await db.collection('kpchRequests').orderBy('createdAt', 'desc').limit(200).get();
     kpchRequestsCache = snap.docs.map(d => ({ key: d.id, ...d.data() }));
-    await loadKpchCenters();
+    await loadLearningCenters();
     renderKpchCenterFilter();
     renderKpchRequestsList();
     refreshRequestBadges();
@@ -2688,46 +2688,23 @@ async function loadKpchRequests(){
   }
 }
 
-/* ---------- รายชื่อศูนย์ (siteSettings/kpchCenters) ---------- */
-const KPCH_CENTER_HEAD = "สกร.ระดับอำเภอเทิง";
-const KPCH_DEFAULT_CENTERS = [
-  "สกร.ระดับอำเภอเทิง",
-  "ศกร.ระดับตำบลตับเต่า (ครูประสิทธิ วิชัย)",
-  "ศกร.ระดับตำบลหงาว (ครูเด่นนภา นิทะโน)",
-  "ศกร.ระดับตำบลเวียง (ครูรัชฎาภรณ์ สุริยนต์)",
-  "ศกร.ระดับตำบลสันทรายงาม (ครูวีนัส สรรพสุข)",
-  "ศกร.ระดับตำบลปล้อง (ครูพรทิพย์ สุขบัญชาชัย)",
-  "ศกร.ระดับตำบลงิ้ว (ครูกัญญ์วรา สีหมนตรี)",
-  "ศกร.ระดับตำบลหนองแรด (ครูรวินท์นิภา จันทวิมล)",
-  "ศกร.ระดับตำบลแม่ลอย (ครูดวงกมล เข็มเพชร)",
-  "ศกร.ระดับตำบลศรีดอนไชย (ครูศุภชัย แก้วกระจ่าง)",
-  "ศกร.ระดับตำบลเชียงเคี่ยน (ครูธันยพัต ปกครองบ้าน)",
-  "ศกร.ระดับตำบลเวียง (ครูอดิเรก ประยศ)",
-  "ศกร.ระดับตำบลงิ้ว (ครูทับทิม พุทธตาล)",
-  "ศกร.ระดับตำบลเชียงเคี่ยน (ครูปราณี ใจกว้าง)",
-  "ศศช.บ้านขุนต้า (ครูสรนันท์ แสนยศ)",
-  "ศศช.บ้านราฎภักดี (ครูสายสุนีย์ โกฏฐา)",
-  "ศศช.บ้านขุนห้วยไคร้ (ครูสุนิสา จินดาจักร)",
-  "ศศช.บ้านเล่าตาขาว (ครูนรินทร์ลักษณ์ นักหล่อ)",
-  "ศศช.บ้านราฎรักษา (ครูวิมล สุทธิจันทร์)",
-  "ศศช.บ้านไทยสามัคคี (ครูอนุพงษ์ สมจริงจงรักษ์)",
-  "ศศช.บ้านราฎภักดี (ครูวนศาสตร์ วัฒนาสกุลลี)",
-  "ศรช.ระดับตำบลหงาว (ครูธวัชชัย เพ็ชรแสง)",
-  "ศรช.ระดับตำบลเวียง (ครูชินดนัย คำต๊ะ)"
-];
-let kpchCentersList = KPCH_DEFAULT_CENTERS.slice();
-async function loadKpchCenters(){
+/* ---------- ศูนย์การเรียนรู้ (siteSettings/learningCenters) ---------- */
+const LC_HEAD = "สกร.ระดับอำเภอเทิง";
+let learningCentersList = [LC_HEAD];
+/* คำขอเก่าที่ยังไม่มีช่องนี้ ถือว่าเป็นของ สกร.ระดับอำเภอเทิง */
+const kpchLC = r => r.learningCenter || LC_HEAD;
+async function loadLearningCenters(){
   try{
-    const snap = await db.collection('siteSettings').doc('kpchCenters').get();
+    const snap = await db.collection('siteSettings').doc('learningCenters').get();
     const arr = snap.exists && Array.isArray(snap.data().centers) ? snap.data().centers.map(x => String(x).trim()).filter(Boolean) : null;
-    if(arr && arr.length) kpchCentersList = [KPCH_CENTER_HEAD].concat(arr.filter(x => x !== KPCH_CENTER_HEAD));
-  }catch(err){ console.warn("loadKpchCenters error:", err); }
-  renderKpchCentersManager();
+    if(arr && arr.length) learningCentersList = [LC_HEAD].concat(arr.filter(x => x !== LC_HEAD));
+  }catch(err){ console.warn("loadLearningCenters error:", err); }
+  renderLearningCentersManager();
 }
-function renderKpchCentersManager(){
+function renderLearningCentersManager(){
   const wrap = document.getElementById('kpchCentersList');
   if(!wrap) return;
-  wrap.innerHTML = kpchCentersList.map((c, i)=>`
+  wrap.innerHTML = learningCentersList.map((c, i)=>`
     <div class="admin-item-row" style="padding:6px 10px;">
       <div class="admin-item-info"><strong style="font-weight:600;">${escapeHtmlAttr(c)}</strong></div>
       <div class="admin-item-actions">${i === 0 ? '<span style="font-size:12px;opacity:.7;">อันดับแรก (คงที่)</span>' : `<button class="btn small secondary" type="button" data-del-center="${i}">ลบ</button>`}</div>
@@ -2735,50 +2712,50 @@ function renderKpchCentersManager(){
   wrap.querySelectorAll('[data-del-center]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const i = parseInt(btn.dataset.delCenter, 10);
-      if(!confirm('ลบ "' + kpchCentersList[i] + '" ออกจากรายการ dropdown?\n(คำขอเก่าที่เคยเลือกศูนย์นี้ยังอยู่ครบ)')) return;
-      kpchCentersList.splice(i, 1);
-      renderKpchCentersManager();
+      if(!confirm('ลบ "' + learningCentersList[i] + '" ออกจากรายการ dropdown?\n(คำขอเก่าที่เคยเลือกศูนย์นี้ยังอยู่ครบ)')) return;
+      learningCentersList.splice(i, 1);
+      renderLearningCentersManager();
     });
   });
 }
 document.getElementById('kpchCenterAddBtn').addEventListener('click', ()=>{
   const inp = document.getElementById('kpchCenterNewInput');
   const name = inp.value.trim();
-  if(!name){ showToast("กรุณากรอกชื่อศูนย์ที่ต้องการเพิ่ม"); return; }
-  if(kpchCentersList.includes(name)){ showToast("มีศูนย์นี้อยู่ในรายการแล้ว"); return; }
-  kpchCentersList.push(name);
+  if(!name){ showToast("กรุณากรอกชื่อศูนย์การเรียนรู้ที่ต้องการเพิ่ม"); return; }
+  if(learningCentersList.includes(name)){ showToast("มีศูนย์นี้อยู่ในรายการแล้ว"); return; }
+  learningCentersList.push(name);
   inp.value = "";
-  renderKpchCentersManager();
+  renderLearningCentersManager();
 });
 document.getElementById('kpchCentersSaveBtn').addEventListener('click', async ()=>{
   try{
-    await db.collection('siteSettings').doc('kpchCenters').set({
-      centers: kpchCentersList.filter(c => c !== KPCH_CENTER_HEAD),
+    await db.collection('siteSettings').doc('learningCenters').set({
+      centers: learningCentersList.filter(c => c !== LC_HEAD),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    showToast("บันทึกรายชื่อศูนย์เรียบร้อยแล้ว");
+    showToast("บันทึกรายชื่อศูนย์การเรียนรู้เรียบร้อยแล้ว");
     renderKpchCenterFilter();
   }catch(err){
-    console.warn("save centers error:", err);
+    console.warn("save learning centers error:", err);
     showToast("บันทึกไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore");
   }
 });
 
-/* ตัวกรองศูนย์ (ใช้ทั้งกับรายการที่แสดงและไฟล์ Excel) */
+/* ตัวกรองศูนย์การเรียนรู้ (ใช้ทั้งกับรายการที่แสดงและไฟล์ Excel) */
 function renderKpchCenterFilter(){
   const sel = document.getElementById('kpchCenterFilter');
   if(!sel) return;
   const cur = sel.value;
-  const names = kpchCentersList.slice();
-  kpchRequestsCache.forEach(r=>{ if(r.center && !names.includes(r.center)) names.push(r.center); });   // ศูนย์ที่เคยมีคำขอแต่ถูกลบออกจากรายการ
-  const count = c => kpchRequestsCache.filter(r => r.center === c).length;
-  sel.innerHTML = `<option value="">ทุกศูนย์ (${kpchRequestsCache.length})</option>` +
+  const names = learningCentersList.slice();
+  kpchRequestsCache.forEach(r=>{ const c = kpchLC(r); if(!names.includes(c)) names.push(c); });
+  const count = c => kpchRequestsCache.filter(r => kpchLC(r) === c).length;
+  sel.innerHTML = `<option value="">ทุกศูนย์การเรียนรู้ (${kpchRequestsCache.length})</option>` +
     names.map(c => `<option value="${escapeHtmlAttr(c)}">${escapeHtmlAttr(c)} (${count(c)})</option>`).join('');
   sel.value = names.includes(cur) ? cur : "";
 }
 function kpchFilteredRequests(){
   const c = (document.getElementById('kpchCenterFilter') || {}).value || "";
-  return c ? kpchRequestsCache.filter(r => r.center === c) : kpchRequestsCache;
+  return c ? kpchRequestsCache.filter(r => kpchLC(r) === c) : kpchRequestsCache;
 }
 document.getElementById('kpchCenterFilter').addEventListener('change', renderKpchRequestsList);
 
@@ -2795,6 +2772,7 @@ function renderKpchRequestsList(){
     return `
       <div class="admin-item-row">
         <div class="admin-item-info">
+          <span style="font-weight:700;">🏫 ${escapeHtmlAttr(kpchLC(r))}</span>
           <strong>${escapeHtmlAttr(r.studentName)} · รหัส ${escapeHtmlAttr(r.studentId)}</strong>
           <span>${escapeHtmlAttr(r.center)} · ${r.hours} ชั่วโมง (${r.pointsUsed} แต้ม) · ${dateStr}</span>
           <span><span class="kpch-status-badge ${isDone ? 'done' : 'pending'}">${isDone ? '✅ ดำเนินการแล้ว' : '🕓 รอดำเนินการ'}</span></span>
@@ -2834,6 +2812,7 @@ document.getElementById('kpchExportBtn').addEventListener('click', ()=>{
     return;
   }
   const kpchSheetData = kpchFilteredRequests().map(r=>({
+    "ศูนย์การเรียนรู้": kpchLC(r),
     "ชื่อ-สกุล": r.studentName,
     "รหัสนักศึกษา": r.studentId,
     "ศูนย์ / ครูประจำกลุ่ม": r.center,
