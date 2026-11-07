@@ -1246,74 +1246,128 @@ document.getElementById('adminGenerateQrBtn').addEventListener('click', async ()
 let adminUsersData = [];
 let adminRedemptionsData = [];
 
-async function loadAdminDashboard(){
-  const usersTable = document.getElementById('adminUsersTable');
-  const redTable = document.getElementById('adminRedemptionsTable');
-  const summaryWrap = document.getElementById('adminSummary');
+const ADMIN_CACHE_KEY = "adminReadersCache:v1";
+function adminCacheSave(users, redemptions){
+  try{
+    localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify({
+      ts: Date.now(), users,
+      redemptions: redemptions.map(r=> ({ ...r, timestamp: r.timestamp ? r.timestamp.getTime() : null }))
+    }));
+  }catch(e){}
+}
+function adminCacheLoad(){
+  try{
+    const c = JSON.parse(localStorage.getItem(ADMIN_CACHE_KEY) || "null");
+    if(!c || !Array.isArray(c.users)) return null;
+    c.redemptions = (c.redemptions || []).map(r=> ({ ...r, timestamp: r.timestamp ? new Date(r.timestamp) : null }));
+    return c;
+  }catch(e){ return null; }
+}
+function adminRenderAll(users, redemptions){
+  adminUsersData = users;
+  adminRedemptionsData = redemptions;
+  renderAdminSummary(users, redemptions);
+  renderAdminUsersTable(users);
+  renderAdminRedemptionsTable(redemptions);
+  renderLockedReadersList();
+}
+function adminSetStatus(text){
+  let el = document.getElementById('adminLoadStatus');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'adminLoadStatus';
+    el.style.cssText = "font-size:13px;opacity:.75;margin:-6px 0 10px;";
+    const tb = document.querySelector('#adminPageReaders .admin-toolbar');
+    if(tb) tb.parentNode.insertBefore(el, tb.nextSibling);
+  }
+  el.textContent = text;
+}
 
-  usersTable.innerHTML = `<tr><td class="admin-empty">กำลังโหลดข้อมูล...</td></tr>`;
-  redTable.innerHTML = "";
-  summaryWrap.innerHTML = "";
+/* โหลดแบบ "แสดงของเดิมทันที แล้วอัปเดตเบื้องหลัง":
+   - ถ้าเคยโหลดแล้ว จะเอาข้อมูลที่จำไว้ในเครื่องมาแสดงทันที แล้วดึงข้อมูลใหม่ตามหลัง
+   - ดึงประวัติการแลกของนักอ่านหลายคนพร้อมกัน (เดิมทีละคน จึงช้ามาก) */
+let adminLoading = false;
+async function loadAdminDashboard(){
+  if(adminLoading) return;
+  adminLoading = true;
+  const usersTable = document.getElementById('adminUsersTable');
+
+  const cached = adminCacheLoad();
+  if(cached){
+    adminRenderAll(cached.users, cached.redemptions);
+    adminSetStatus("🕒 แสดงข้อมูลที่จำไว้ (" + new Date(cached.ts).toLocaleString('th-TH') + ") — กำลังอัปเดตข้อมูลล่าสุด...");
+  } else {
+    usersTable.innerHTML = `<tr><td class="admin-empty">กำลังโหลดข้อมูล... (ครั้งแรกจะใช้เวลาหน่อย ครั้งต่อไปจะเร็วขึ้น)</td></tr>`;
+    adminSetStatus("");
+  }
 
   try{
     const usersSnap = await db.collection('users').get();
+    const docs = usersSnap.docs.filter(d=> (d.data() || {}).role !== "admin"); // ไม่นับบัญชีผู้ดูแลระบบเอง
+
+    async function fetchReds(docSnap){
+      try{
+        const redSnap = await db.collection('users').doc(docSnap.id).collection('redemptions').orderBy('timestamp', 'desc').get();
+        return redSnap.docs.map(rd=>{
+          const r = rd.data();
+          return {
+            rewardTitle: r.rewardTitle || "-",
+            cost: r.cost || 0,
+            timestamp: (r.timestamp && r.timestamp.toDate) ? r.timestamp.toDate() : null
+          };
+        });
+      }catch(e){ return []; }
+    }
+
+    const results = new Array(docs.length);
+    let next = 0, done = 0;
+    async function worker(){
+      while(next < docs.length){
+        const i = next++;
+        results[i] = await fetchReds(docs[i]);
+        done++;
+        if(!cached && done % 20 === 0) adminSetStatus(`กำลังโหลด ${done}/${docs.length} คน...`);
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(15, docs.length) }, worker));
+
     const users = [];
     const redemptions = [];
-
-    for(const docSnap of usersSnap.docs){
+    docs.forEach((docSnap, i)=>{
       const d = docSnap.data();
-      if(d.role === "admin") continue; // ไม่นับบัญชีผู้ดูแลระบบเองในรายงาน
-
-      let redSnap;
-      try{
-        redSnap = await db.collection('users').doc(docSnap.id).collection('redemptions').orderBy('timestamp', 'desc').get();
-      }catch(e){
-        redSnap = { docs: [] };
-      }
-
-      const userRedemptions = redSnap.docs.map(rd=>{
-        const r = rd.data();
-        return {
-          rewardTitle: r.rewardTitle || "-",
-          cost: r.cost || 0,
-          timestamp: (r.timestamp && r.timestamp.toDate) ? r.timestamp.toDate() : null
-        };
-      });
-
+      const userRedemptions = results[i] || [];
       const totalRedeemedPoints = userRedemptions.reduce((s, r)=> s + r.cost, 0);
       const currentPoints = d.totalPoints || 0;
-      const totalEarnedPoints = currentPoints + totalRedeemedPoints;
       const userName = d.name || "-";
-
       users.push({
         uid: docSnap.id,
         name: userName,
         currentPoints,
-        totalEarnedPoints,
+        totalEarnedPoints: currentPoints + totalRedeemedPoints,
         totalRedeemedPoints,
         redeemCount: userRedemptions.length,
         locks: d.locks || {}
       });
-
       userRedemptions.forEach(r=> redemptions.push({ userName, ...r }));
-    }
+    });
 
     users.sort((a, b)=> b.totalEarnedPoints - a.totalEarnedPoints);
     redemptions.sort((a, b)=> (b.timestamp || 0) - (a.timestamp || 0));
 
-    adminUsersData = users;
-    adminRedemptionsData = redemptions;
-
-    renderAdminSummary(users, redemptions);
-    renderAdminUsersTable(users);
-    renderAdminRedemptionsTable(redemptions);
-    renderLockedReadersList();
+    adminRenderAll(users, redemptions);
+    adminCacheSave(users, redemptions);
+    adminSetStatus("✅ อัปเดตล่าสุด " + new Date().toLocaleString('th-TH'));
   }catch(err){
     console.warn("loadAdminDashboard error:", err);
-    usersTable.innerHTML = `<tr><td class="admin-empty">ไม่สามารถโหลดข้อมูลได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง Firestore (Security Rules) ของบัญชีผู้ดูแลระบบ</td></tr>`;
-    const lockWrap = document.getElementById('lockedReadersListWrap');
-    if(lockWrap) lockWrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ</p>`;
+    if(cached){
+      adminSetStatus("⚠️ อัปเดตข้อมูลล่าสุดไม่สำเร็จ ตอนนี้แสดงข้อมูลที่จำไว้");
+    } else {
+      usersTable.innerHTML = `<tr><td class="admin-empty">ไม่สามารถโหลดข้อมูลได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง Firestore (Security Rules) ของบัญชีผู้ดูแลระบบ</td></tr>`;
+      const lockWrap = document.getElementById('lockedReadersListWrap');
+      if(lockWrap) lockWrap.innerHTML = `<p class="admin-empty">โหลดข้อมูลไม่สำเร็จ</p>`;
+    }
   }
+  adminLoading = false;
 }
 
 function renderAdminSummary(users, redemptions){
