@@ -2960,7 +2960,7 @@ document.getElementById('intentsExportBtn').addEventListener('click', ()=>{
   intentsCache.forEach(r=>{
     (r.items || []).forEach(it=>{
       detail.push({
-        "ชื่อ-สกุล": r.name, "ระดับชั้น": r.level, "ศูนย์ / ครูประจำกลุ่ม": r.center,
+        "ชื่อ-สกุล": r.name, "ระดับชั้น": r.level, "ห้องเรียน": r.center,
         "รางวัลที่แลก": it.title, "จำนวน (ชิ้น)": it.qty,
         "สถานะ": r.status === "done" ? "เตรียมแล้ว" : "รอจัดเตรียม",
         "วันเวลาที่แจ้ง": fmtIntentDate(r.createdAt)
